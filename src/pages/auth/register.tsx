@@ -1,56 +1,83 @@
 import React, { useState, FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../../Context/AuthContext";
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
+  const { register } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+  const [phoneNumber, setphoneNumber] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isDoctor, setIsDoctor] = useState(false);
+  const [professionalPracticeLicense, setProfessionalPracticeLicense] = useState("");
+  const [issuingAuthority, setIssuingAuthority] = useState("");
   const [termsChecked, setTermsChecked] = useState(false);
   const [errors, setErrors] = useState<{
-    firstName?: string;
-    lastName?: string;
+    username?: string;
     email?: string;
+    phoneNumber?: string;
     password?: string;
     confirmPassword?: string;
+    professionalPracticeLicense?: string;
+    issuingAuthority?: string;
     terms?: string;
+    submit?: string;
   }>({});
 
   const clearError = (field: keyof typeof errors) => {
     setErrors((prev) => ({ ...prev, [field]: undefined }));
   };
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const newErrors: {
-      firstName?: string;
-      lastName?: string;
+      username?: string;
       email?: string;
+      phoneNumber?: string;
       password?: string;
       confirmPassword?: string;
+      professionalPracticeLicense?: string;
+      issuingAuthority?: string;
       terms?: string;
     } = {};
 
-    if (!firstName.trim()) newErrors.firstName = "Please enter your first name.";
-    if (!lastName.trim()) newErrors.lastName = "Please enter your last name.";
+    if (!username.trim()) newErrors.username = "Please enter your user name.";
     if (!email.trim()) {
       newErrors.email = "Please enter your email address.";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       newErrors.email = "Please enter a valid email address.";
     }
+    if (!phoneNumber) {
+      newErrors.phoneNumber = "Please enter your phone Number.";
+    } else if (phoneNumber.length < 11) {
+      newErrors.phoneNumber = "phone Number must be 11 characters.";
+    }
     if (!password) {
       newErrors.password = "Please enter your password.";
     } else if (password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters.";
+      newErrors.password = "Password must be at least 8 characters and include at least one uppercase letter and one special character (!@#$%...).";
     }
     if (!confirmPassword) {
       newErrors.confirmPassword = "Please confirm your password.";
     } else if (password !== confirmPassword) {
       newErrors.confirmPassword = "Passwords do not match.";
+    }
+    if (isDoctor) {
+      if (!professionalPracticeLicense.trim()) {
+        newErrors.professionalPracticeLicense = "Please enter your professional practice license.";
+      }
+      if (!issuingAuthority.trim()) {
+        newErrors.issuingAuthority = "Please enter the issuing authority.";
+      }
+    }
+    if (!termsChecked) {
+      newErrors.terms = "You must accept the Terms & Conditions.";
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -58,17 +85,35 @@ const RegisterPage: React.FC = () => {
       return;
     }
 
-    if (!termsChecked) {
-      setErrors((prev) => ({ ...prev, terms: "You must accept the Terms & Conditions." }));
-      return;
-    }
-
     setErrors({});
     setIsSubmitting(true);
-    setTimeout(() => {
+
+    try {
+      await register({
+        username: username.trim(),
+        email: email.trim(),
+        phoneNumber: phoneNumber.trim(),
+        password,
+        confirmPassword,
+        isDoctor,
+        professionalPracticeLicense: professionalPracticeLicense.trim(),
+        issuingAuthority: issuingAuthority.trim(),
+      });
+
+      navigate("/login", {
+        replace: true,
+        state: {
+          successMessage: "Registration successful. Please sign in.",
+        },
+      });
+    } catch (err) {
+      console.log(err);
+      setErrors({
+        submit: err instanceof Error ? err.message : "Registration failed. Please try again.",
+      });
+    } finally {
       setIsSubmitting(false);
-      navigate("/login");
-    }, 900);
+    }
   };
 
   return (
@@ -87,38 +132,21 @@ const RegisterPage: React.FC = () => {
           <form className="auth-form" onSubmit={handleSubmit}>
             <h2 className="auth-form-title">Sign Up</h2>
 
-            <div className="auth-row">
               <div className="auth-input-wrap">
-                <label className="auth-label" htmlFor="firstName">First name</label>
+                <label className="auth-label" htmlFor="username">User name</label>
                 <input
-                  id="firstName"
+                  id="username"
                   type="text"
-                  className={`auth-input ${errors.firstName ? "error" : ""}`}
-                  placeholder="First name"
-                  value={firstName}
+                  className={`auth-input ${errors.username ? "error" : ""}`}
+                  placeholder="user name"
+                  value={username}
                   onChange={(e) => {
-                    setFirstName(e.target.value);
-                    clearError("firstName");
+                    setUsername(e.target.value);
+                    clearError("username");
                   }}
                 />
-                {errors.firstName && <p className="auth-error-msg">{errors.firstName}</p>}
+                {errors.username && <p className="auth-error-msg">{errors.username}</p>}
               </div>
-              <div className="auth-input-wrap">
-                <label className="auth-label" htmlFor="lastName">Last name</label>
-                <input
-                  id="lastName"
-                  type="text"
-                  className={`auth-input ${errors.lastName ? "error" : ""}`}
-                  placeholder="Last name"
-                  value={lastName}
-                  onChange={(e) => {
-                    setLastName(e.target.value);
-                    clearError("lastName");
-                  }}
-                />
-                {errors.lastName && <p className="auth-error-msg">{errors.lastName}</p>}
-              </div>
-            </div>
 
             <div className="auth-input-wrap">
               <label className="auth-label" htmlFor="email">Email address</label>
@@ -134,6 +162,22 @@ const RegisterPage: React.FC = () => {
                 }}
               />
               {errors.email && <p className="auth-error-msg">{errors.email}</p>}
+            </div>
+
+            <div className="auth-input-wrap">
+              <label className="auth-label" htmlFor="phoneNumber">Phone Number</label>
+              <input
+                id="phoneNumber"
+                type="tel"
+                className={`auth-input ${errors.phoneNumber ? "error" : ""}`}
+                placeholder="phone Number"
+                value={phoneNumber}
+                onChange={(e) => {
+                  setphoneNumber(e.target.value);
+                  clearError("phoneNumber");
+                }}
+              />
+              {errors.phoneNumber && <p className="auth-error-msg">{errors.phoneNumber}</p>}
             </div>
 
             <div className="auth-input-wrap">
@@ -171,6 +215,62 @@ const RegisterPage: React.FC = () => {
 
             <div className="auth-check-wrap">
               <input
+                id="isDoctor"
+                type="checkbox"
+                checked={isDoctor}
+                onChange={(e) => {
+                  setIsDoctor(e.target.checked);
+                  if (!e.target.checked) {
+                    setProfessionalPracticeLicense("");
+                    setIssuingAuthority("");
+                  }
+                }}
+              />
+              <label htmlFor="isDoctor">I am a doctor</label>
+            </div>
+
+            {isDoctor && (
+              <>
+                <div className="auth-input-wrap">
+                  <label className="auth-label" htmlFor="professionalPracticeLicense">
+                    Professional Practice License
+                  </label>
+                  <input
+                    id="professionalPracticeLicense"
+                    type="text"
+                    className={`auth-input ${errors.professionalPracticeLicense ? "error" : ""}`}
+                    placeholder="License number"
+                    value={professionalPracticeLicense}
+                    onChange={(e) => {
+                      setProfessionalPracticeLicense(e.target.value);
+                      clearError("professionalPracticeLicense");
+                    }}
+                  />
+                  {errors.professionalPracticeLicense && (
+                    <p className="auth-error-msg">{errors.professionalPracticeLicense}</p>
+                  )}
+                </div>
+
+                <div className="auth-input-wrap">
+                  <label className="auth-label" htmlFor="issuingAuthority">Issuing Authority</label>
+                  <input
+                    id="issuingAuthority"
+                    type="text"
+                    className={`auth-input ${errors.issuingAuthority ? "error" : ""}`}
+                    placeholder="Authority name"
+                    value={issuingAuthority}
+                    onChange={(e) => {
+                      setIssuingAuthority(e.target.value);
+                      clearError("issuingAuthority");
+                    }}
+                  />
+                  {errors.issuingAuthority && <p className="auth-error-msg">{errors.issuingAuthority}</p>}
+                </div>
+              </>
+            )}
+
+            <div className="auth-check-wrap">
+              <input
                 id="terms"
                 type="checkbox"
                 checked={termsChecked}
@@ -182,13 +282,14 @@ const RegisterPage: React.FC = () => {
               <label htmlFor="terms">Accept Terms & Conditions</label>
             </div>
             {errors.terms && <p className="auth-error-msg">{errors.terms}</p>}
+            {errors.submit && <p className="auth-error-msg">{errors.submit}</p>}
 
             <button type="submit" className="auth-btn-primary" disabled={isSubmitting}>
               {isSubmitting ? "Creating account..." : "Join us"}
               <span>→</span>
             </button>
 
-            <div className="auth-divider-wrap">
+            {/* <div className="auth-divider-wrap">
               <span className="auth-divider-line" />
               <p className="auth-divider-text">or</p>
               <span className="auth-divider-line" />
@@ -197,7 +298,7 @@ const RegisterPage: React.FC = () => {
             <button type="button" className="auth-btn-social">
               <span>G</span>
               Sign up with Google
-            </button>
+            </button> */}
 
             <p className="auth-form-footer">
               Already have an account? <Link to="/login">Sign in</Link>
