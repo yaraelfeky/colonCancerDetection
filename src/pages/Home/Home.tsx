@@ -14,7 +14,7 @@ const Home: React.FC = () => {
   return (
     <main className="min-h-screen bg-white text-slate-900">
       <header className="p-3 d-flex justify-content-between align-items-center border-bottom">
-        <span>Welcome, {user?.email ?? "User"}</span>
+        <span>Welcome, {user?.username ?? "User"}</span>
         <button type="button" className="btn btn-outline-secondary btn-sm" onClick={handleLogout}>
           Logout
         </button>

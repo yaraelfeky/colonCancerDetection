@@ -1,56 +1,30 @@
-// /** Auth API response from POST /api/Auth/login (and register when same shape) */
-// export interface AuthResponse {
-//   /** Whether the operation was successful (if present) */
-//   success?: boolean;
-//   /** Human-readable status/message (if present) */
-//   message?: string;
-//   /** Primary JWT returned by the backend (preferred field) */
-//   token?: string | null;
-//   /** Optional legacy fields that may still be present */
-//   accessToken?: string | null;
-//   refreshToken?: string | null;
-//   accessTokenExpiration?: string | null;
-//   refreshTokenExpiration?: string | null;
-// }
+/** Backend login request DTO - POST /api/Auth/login */
+export interface LoginRequestDto {
+  usernameOrEmail: string;
+  password: string;
+}
 
-// export interface LoginCredentials {
-//   userName: string;
-//   password: string;
-// }
-
-// export interface RegisterCredentials {
-//   /** Backend usually expects 'userName' in ASP.NET-style APIs */
-//   userName: string;
-//   email: string;
-//   phoneNumber: string;
-//   password: string;
-//   /** Optional but sent when available to satisfy confirm-password validation */
-//   confirmPassword?: string;
-// }
-
-export interface RegisterCredentials {
+/** Backend register request DTO - POST /api/Auth/register */
+export interface RegisterRequestDto {
   username: string;
   email: string;
   phoneNumber: string;
   password: string;
   confirmPassword: string;
   isDoctor: boolean;
-  professionalPracticeLicense: string;
-  issuingAuthority: string;
+  /** Required when isDoctor is true; omit when false */
+  professionalPracticeLicense?: string;
+  /** Required when isDoctor is true; omit when false */
+  issuingAuthority?: string;
 }
 
-export interface LoginCredentials {
-  usernameOrEmail: string;
-  password: string;
-}
-
-export interface AuthResponse {
-  success?: boolean;
-  message?: string;
-  token?: string | null;
+/** Backend auth response - login and register */
+export interface AuthResponseDto {
+  success: boolean;
+  message: string;
   accessToken?: string | null;
+  token?: string | null;
   refreshToken?: string | null;
   accessTokenExpiration?: string | null;
   refreshTokenExpiration?: string | null;
 }
-

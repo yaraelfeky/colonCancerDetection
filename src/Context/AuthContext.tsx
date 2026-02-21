@@ -1,9 +1,10 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { authService } from "../services/authService";
-import type { LoginCredentials, RegisterCredentials } from "../types/auth";
+import type { LoginRequestDto, RegisterRequestDto } from "../types/auth";
 
 export interface User {
   email: string;
+  username?: string;
 }
 
 interface AuthState {
@@ -13,20 +14,44 @@ interface AuthState {
 }
 
 interface AuthContextValue extends AuthState {
-  login: (credentials: LoginCredentials) => Promise<void>;
+  login: (dto: LoginRequestDto) => Promise<void>;
   logout: () => void;
-  register: (credentials: RegisterCredentials) => Promise<void>;
+  register: (dto: RegisterRequestDto) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+// function readStoredUser(): User | null {
+//   const token = authService.getToken();
+//   if (!token) return null;
+//   try {
+//     const payload = JSON.parse(atob(token.split(".")[1] ?? "{}"));
+//     const email = payload.email ?? payload.sub ?? "";
+//     return email ? { email } : null;
+//   } catch {
+//     return null;
+//   }
+// }
 function readStoredUser(): User | null {
   const token = authService.getToken();
   if (!token) return null;
+
   try {
     const payload = JSON.parse(atob(token.split(".")[1] ?? "{}"));
+
     const email = payload.email ?? payload.sub ?? "";
-    return email ? { email } : null;
+    const username =
+      payload.username ??
+      payload.unique_name ??
+      payload.name ??
+      "";
+
+    if (!email) return null;
+
+    return {
+      email,
+      username,
+    };
   } catch {
     return null;
   }
@@ -53,10 +78,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refreshAuth]);
 
   const login = useCallback(
-    async (credentials: LoginCredentials) => {
-      await authService.login(credentials);
-      // const user = readStoredUser() ?? { email: credentials.userName };
-      const user = readStoredUser() ?? { email: credentials.usernameOrEmail };
+    async (dto: LoginRequestDto) => {
+      await authService.login(dto);
+      // const user = readStoredUser() ?? { email: dto.usernameOrEmail };
+      const user =
+        readStoredUser() ?? {
+          email: dto.usernameOrEmail,
+          username: dto.usernameOrEmail,
+        };
       setState({
         user,
         isAuthenticated: true,
@@ -68,9 +97,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 
   const register = useCallback(
-    async (credentials: RegisterCredentials) => {
-      await authService.register(credentials);
-      const user = readStoredUser() ?? { email: credentials.email };
+    async (dto: RegisterRequestDto) => {
+      await authService.register(dto);
+      // const user = readStoredUser() ?? { email: dto.email };
+      const user =
+        readStoredUser() ?? {
+          email: dto.email,
+          username: dto.username,
+        };
       setState({
         user,
         isAuthenticated: true,

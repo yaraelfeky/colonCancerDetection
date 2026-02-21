@@ -1,6 +1,7 @@
 import React, { useState, FormEvent } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../Context/AuthContext";
+import { getAxiosErrorMessage } from "../../utils/axiosError";
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -35,12 +36,16 @@ const LoginPage: React.FC = () => {
     setErrors({});
     setIsSubmitting(true);
     try {
-      await login({ usernameOrEmail: usernameOrEmail.trim(), password });
+      const dto = {
+        usernameOrEmail: usernameOrEmail.trim(),
+        password,
+      };
+      await login(dto);
       const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? "/dashboard";
       navigate(from, { replace: true });
     } catch (err) {
       setErrors({
-        submit: err instanceof Error ? err.message : "Sign in failed. Please try again.",
+        submit: getAxiosErrorMessage(err),
       });
     } finally {
       setIsSubmitting(false);
