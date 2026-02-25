@@ -104,11 +104,39 @@ const Navbar: React.FC = () => {
 
       {/* ── Blue Nav Bar ── */}
       <div
-        className="w-75 rounded-2xl flex align-content-center ms-44"
+        className="w-full flex items-center justify-between"
         style={{ background: "#1E88E5" }}
       >
         <Container>
-          <div className="flex items-center p-8 justify-between h-14">
+          <div className="flex items-center py-3 justify-between">
+            {/* Mobile: hamburger menu */}
+            <button
+              className="md:hidden p-2 text-white"
+              onClick={() => setMenuOpen(!menuOpen)}
+            >
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                {menuOpen ? (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                ) : (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M4 6h16M4 12h16M4 18h16"
+                  />
+                )}
+              </svg>
+            </button>
+
             {/* Desktop nav links */}
             <nav className="hidden md:flex items-center h-full gap-2">
               {navLinks.map((link) => (
