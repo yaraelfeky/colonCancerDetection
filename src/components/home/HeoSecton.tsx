@@ -44,7 +44,7 @@ const HeroSection = () => {
 
                 <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
                   <a
-                    href="/diagnosis"
+                    href="#diagnosis"
                     className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-bold text-white transition-all duration-200 hover:opacity-90 hover:shadow-xl active:scale-95"
                     style={{
                       background: "linear-gradient(135deg, #1E88E5, #26A69A)",

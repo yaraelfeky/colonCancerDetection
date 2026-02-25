@@ -2,9 +2,9 @@ import React from "react";
 import Container from "./Container";
 
 const quickLinks = [
-  { label: "Home", href: "/" },
-  { label: "About", href: "/about" },
-  { label: "Start Diagnosis", href: "/diagnosis" },
+  { label: "Home", href: "/dashboard" },
+  { label: "About", href: "/dashboard#about" },
+  { label: "Start Diagnosis", href: "/dashboard#diagnosis" },
   { label: "Login", href: "/login" },
 ];
 
@@ -13,7 +13,8 @@ const Footer: React.FC = () => {
 
   return (
     <footer
-      className="border-t border-gray-100 mt-auto"
+      id="contact"
+      className="border-t border-gray-100 mt-auto scroll-mt-40"
       style={{ background: "#0D3077" }}
     >
       {/* Top divider accent */}

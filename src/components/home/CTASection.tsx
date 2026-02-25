@@ -2,7 +2,7 @@ import Container from "../Layout/Container";
 
 const CTASection = () => {
   return (
-        <section className="pb-24">
+        <section id="diagnosis" className="pb-24 scroll-mt-40">
           <Container>
             <div
               className="rounded-3xl p-10 md:p-16 flex flex-col items-center text-center relative overflow-hidden"
@@ -20,7 +20,7 @@ const CTASection = () => {
                 Upload your first colonoscopy image and receive AI-assisted results in under 3 seconds.
               </p>
               <a
-                href="/diagnosis"
+                href="#diagnosis"
                 className="relative z-10 inline-flex items-center gap-2 px-8 py-3.5 rounded-xl text-sm font-bold bg-white hover:bg-blue-50 transition-all duration-200 hover:shadow-xl active:scale-95"
                 style={{ color: "#1E88E5" }}
               >

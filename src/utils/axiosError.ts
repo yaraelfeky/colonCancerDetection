@@ -6,6 +6,17 @@ import { AxiosError } from "axios";
  */
 export function getAxiosErrorMessage(err: unknown): string {
   if (err instanceof AxiosError) {
+    // Check for network error (no response)
+    if (!err.response) {
+      if (err.code === "ERR_NETWORK" || err.message.includes("Network Error")) {
+        return "Unable to connect to server. Please check your internet connection or try again later.";
+      }
+      if (err.code === "ECONNABORTED") {
+        return "Request timed out. Please try again.";
+      }
+      return "Network error. Please check your connection and try again.";
+    }
+
     const data = err.response?.data;
     if (data && typeof data === "object") {
       if (typeof data.message === "string" && data.message) {
