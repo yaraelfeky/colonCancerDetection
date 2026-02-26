@@ -5,6 +5,7 @@ import type { LoginRequestDto, RegisterRequestDto } from "../types/auth";
 export interface User {
   email: string;
   username?: string;
+  role?: string;
 }
 
 interface AuthState {
@@ -14,24 +15,14 @@ interface AuthState {
 }
 
 interface AuthContextValue extends AuthState {
-  login: (dto: LoginRequestDto) => Promise<void>;
+  login: (dto: LoginRequestDto, remember: boolean) => Promise<void>;
   logout: () => void;
   register: (dto: RegisterRequestDto) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-// function readStoredUser(): User | null {
-//   const token = authService.getToken();
-//   if (!token) return null;
-//   try {
-//     const payload = JSON.parse(atob(token.split(".")[1] ?? "{}"));
-//     const email = payload.email ?? payload.sub ?? "";
-//     return email ? { email } : null;
-//   } catch {
-//     return null;
-//   }
-// }
+
 function readStoredUser(): User | null {
   const token = authService.getToken();
   if (!token) return null;
@@ -39,11 +30,16 @@ function readStoredUser(): User | null {
   try {
     const payload = JSON.parse(atob(token.split(".")[1] ?? "{}"));
 
-    const email = payload.email ?? payload.sub ?? "";
+    const email =
+      payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"] ??
+      "";
+
     const username =
-      payload.username ??
-      payload.unique_name ??
-      payload.name ??
+      payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"] ??
+      "";
+
+    const role =
+      payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ??
       "";
 
     if (!email) return null;
@@ -51,6 +47,7 @@ function readStoredUser(): User | null {
     return {
       email,
       username,
+      role,
     };
   } catch {
     return null;
@@ -77,43 +74,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refreshAuth();
   }, [refreshAuth]);
 
-  const login = useCallback(
-    async (dto: LoginRequestDto) => {
-      await authService.login(dto);
-      // const user = readStoredUser() ?? { email: dto.usernameOrEmail };
-      const user =
-        readStoredUser() ?? {
-          email: dto.usernameOrEmail,
-          username: dto.usernameOrEmail,
-        };
-      setState({
-        user,
-        isAuthenticated: true,
-        isLoading: false,
-      });
-    },
-    []
-  );
-
-
-  const register = useCallback(
-    async (dto: RegisterRequestDto) => {
-      await authService.register(dto);
-      // const user = readStoredUser() ?? { email: dto.email };
-      const user =
-        readStoredUser() ?? {
-          email: dto.email,
-          username: dto.username,
-        };
-      setState({
-        user,
-        isAuthenticated: true,
-        isLoading: false,
-      });
-    },
-    []
-  );
-
   const logout = useCallback(() => {
     authService.logout();
     setState({
@@ -122,6 +82,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isLoading: false,
     });
   }, []);
+
+const login = useCallback(
+  async (dto: LoginRequestDto, remember: boolean) => {
+    const response = await authService.login(dto);
+
+    const token = response.accessToken;
+
+    if (!token) {
+      throw new Error("No access token received.");
+    }
+
+    if (remember) {
+      localStorage.setItem("token", token);
+    } else {
+      sessionStorage.setItem("token", token);
+    }
+
+    const user = readStoredUser();
+    if (!user) throw new Error("Invalid token.");
+
+    if (user.role !== "Doctor") {
+      logout();
+      throw new Error("You are not authorized. Doctors only.");
+    }
+
+    setState({
+      user,
+      isAuthenticated: true,
+      isLoading: false,
+    });
+  },
+  [logout]
+);
+
+  const register = useCallback(
+  async (dto: RegisterRequestDto) => {
+    await authService.register(dto);
+  },
+  []
+);
+
 
   const value: AuthContextValue = {
     ...state,
