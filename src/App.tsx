@@ -31,6 +31,9 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import LoginPage from "./pages/auth/login";
 import RegisterPage from "./pages/auth/register";
 import Home from "./pages/Home/Home";
+import { DoctorRoute } from "./components/DoctorRoute";
+import DoctorProfileDashboard from "./pages/doctor/DoctorProfileDashboard";
+import NotificationsPage from "./pages/NotificationsPage";
 
 const App: React.FC = () => {
   return (
@@ -69,7 +72,7 @@ const App: React.FC = () => {
         path="/notifications"
         element={
           <ProtectedRoute>
-            <div>Notifications page (coming soon)</div>
+            <NotificationsPage />
           </ProtectedRoute>
         }
       />
@@ -86,6 +89,16 @@ const App: React.FC = () => {
         element={
           <ProtectedRoute>
             <div>Settings page (coming soon)</div>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/doctor/profile"
+        element={
+          <ProtectedRoute>
+            <DoctorRoute>
+              <DoctorProfileDashboard />
+            </DoctorRoute>
           </ProtectedRoute>
         }
       />

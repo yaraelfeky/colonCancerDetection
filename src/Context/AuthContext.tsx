@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { authService } from "../services/authService";
 import type { LoginRequestDto, RegisterRequestDto } from "../types/auth";
+import { clearStoredUserRole, parseRoleFromJwt, setStoredUserRole } from "../utils/userRole";
 
 export interface User {
   email: string;
@@ -66,6 +67,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshAuth = useCallback(() => {
     const isAuthenticated = authService.isAuthenticated();
+    const roleFromJwt = parseRoleFromJwt(authService.getToken());
+    if (roleFromJwt) {
+      setStoredUserRole(roleFromJwt);
+    }
     setState({
       user: isAuthenticated ? readStoredUser() : null,
       isAuthenticated,
@@ -80,7 +85,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(
     async (dto: LoginRequestDto) => {
       await authService.login(dto);
-      // const user = readStoredUser() ?? { email: dto.usernameOrEmail };
+      const token = authService.getToken();
+      const roleFromJwt = parseRoleFromJwt(token);
+      if (roleFromJwt) {
+        setStoredUserRole(roleFromJwt);
+      }
       const user =
         readStoredUser() ?? {
           email: dto.usernameOrEmail,
@@ -99,7 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = useCallback(
     async (dto: RegisterRequestDto) => {
       await authService.register(dto);
-      // const user = readStoredUser() ?? { email: dto.email };
+      setStoredUserRole(dto.isDoctor ? "doctor" : "patient");
       const user =
         readStoredUser() ?? {
           email: dto.email,
@@ -116,6 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(() => {
     authService.logout();
+    clearStoredUserRole();
     setState({
       user: null,
       isAuthenticated: false,
