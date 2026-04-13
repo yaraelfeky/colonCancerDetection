@@ -11,6 +11,7 @@ const LoginPage: React.FC = () => {
   const [usernameOrEmail, setUsernameOrEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [errors, setErrors] = useState<{ usernameOrEmail?: string; password?: string; submit?: string }>({});
   const successMessage =
     (location.state as { successMessage?: string } | null | undefined)?.successMessage;
@@ -40,7 +41,7 @@ const LoginPage: React.FC = () => {
         usernameOrEmail: usernameOrEmail.trim(),
         password,
       };
-      await login(dto);
+      await login(dto, rememberMe);
       const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? "/dashboard";
       navigate(from, { replace: true });
     } catch (err) {
@@ -122,7 +123,12 @@ const LoginPage: React.FC = () => {
             </div>
 
             <div className="auth-check-wrap">
-              <input id="remember" type="checkbox" />
+              <input
+                id="remember"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              />
               <label htmlFor="remember">Remember me</label>
             </div>
 
@@ -132,6 +138,7 @@ const LoginPage: React.FC = () => {
               {isSubmitting ? "Signing in..." : "Login"}
               <span>→</span>
             </button>
+
 
             {/* <div className="auth-divider-wrap">
               <span className="auth-divider-line" />

@@ -49,10 +49,16 @@ export const authService = {
 
   logout(): void {
     clearToken();
+    localStorage.removeItem("token");
+    sessionStorage.removeItem("token");
   },
 
   getToken(): string | null {
-    return localStorage.getItem(TOKEN_KEY);
+    // return localStorage.getItem(TOKEN_KEY);
+    return (
+      localStorage.getItem("token") ||
+      sessionStorage.getItem("token")
+    );
   },
 
   isAuthenticated(): boolean {
