@@ -71,19 +71,19 @@ const Navbar: React.FC = () => {
       {/* ── Top Info Bar ── */}
       <div className="w-full bg-[#EBF3FC]">
         <Container>
-          <div className="flex items-center justify-between h-20 gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2 min-h-[3.25rem] py-2 sm:py-0 sm:h-20 sm:gap-4">
             {/* Logo */}
             <Link
               to="/dashboard"
-              className="flex items-center gap-2.5 flex-shrink-0 select-none"
+              className="flex items-center gap-2 sm:gap-2.5 min-w-0 max-w-[min(52%,11rem)] sm:max-w-none select-none"
             >
               {/* Medical cross icon */}
               <div
-                className="w-10 h-10 rounded-full flex items-center justify-center border-2 border-[#1E88E5]"
+                className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border-2 border-[#1E88E5] flex-shrink-0"
                 style={{ background: "white" }}
               >
                 <svg
-                  className="w-5 h-5 text-[#1E88E5]"
+                  className="w-4 h-4 sm:w-5 sm:h-5 text-[#1E88E5]"
                   viewBox="0 0 24 24"
                   fill="currentColor"
                 >
@@ -91,15 +91,25 @@ const Navbar: React.FC = () => {
                 </svg>
               </div>
               <span
-                className="text-2xl font-extrabold tracking-tight"
+                className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight truncate"
                 style={{ color: "#1E3A6E", letterSpacing: "-0.5px" }}
               >
                 ColonAI
               </span>
             </Link>
 
-            <div className="flex gap-3 sm:gap-4 items-center">
-              {/* CTA Button */}
+            <div className="flex w-full min-w-0 sm:w-auto sm:flex-1 flex-wrap items-center justify-end gap-x-1 gap-y-1.5 sm:gap-x-3 md:gap-x-4">
+              {/* CTA — compact on small phones, full from md */}
+              <a
+                href="#diagnosis"
+                className="inline-flex md:hidden no-underline items-center px-2 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold text-white transition-all active:scale-95 shrink-0"
+                style={{
+                  background: "#1E88E5",
+                  boxShadow: "0 2px 10px rgba(30,136,229,0.35)",
+                }}
+              >
+                Diagnosis
+              </a>
               <a
                 href="#diagnosis"
                 className="hidden md:inline-flex no-underline items-center gap-2 px-3 py-2 rounded-2xl text-sm font-bold text-white transition-all duration-200 hover:opacity-90 active:scale-95 flex-shrink-0"
@@ -112,13 +122,13 @@ const Navbar: React.FC = () => {
               </a>
 
               {isDoctor && (
-                <div className="flex items-center gap-2 sm:gap-3">
+                <div className="flex items-center gap-0.5 sm:gap-2 md:gap-3 shrink-0">
                   <Link
                     to="/settings"
-                    className="w-10 h-10 rounded-full flex items-center justify-center bg-gray-200/80 text-[#1E3A6E] hover:bg-gray-300/90 transition-colors no-underline"
+                    className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center bg-gray-200/80 text-[#1E3A6E] hover:bg-gray-300/90 transition-colors no-underline"
                     aria-label="Settings"
                   >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -129,10 +139,10 @@ const Navbar: React.FC = () => {
                   </Link>
                   <Link
                     to="/notifications"
-                    className="relative w-10 h-10 rounded-full flex items-center justify-center bg-gray-200/80 text-[#1E3A6E] hover:bg-gray-300/90 transition-colors no-underline"
+                    className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center bg-gray-200/80 text-[#1E3A6E] hover:bg-gray-300/90 transition-colors no-underline"
                     aria-label="Notifications"
                   >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -141,21 +151,21 @@ const Navbar: React.FC = () => {
                     </svg>
                     {unreadNotifications > 0 && (
                       <span
-                        className="absolute top-1.5 right-2 w-2 h-2 rounded-full bg-[#1E88E5] ring-2 ring-[#EBF3FC]"
+                        className="absolute top-1 right-1.5 sm:top-1.5 sm:right-2 w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#1E88E5] ring-2 ring-[#EBF3FC]"
                         aria-hidden
                       />
                     )}
                   </Link>
                   <Link
                     to="/doctor/profile"
-                    className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden border-[3px] border-[#1E88E5] bg-white shrink-0 no-underline"
+                    className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center overflow-hidden border-2 sm:border-[3px] border-[#1E88E5] bg-white shrink-0 no-underline"
                     title={doctorDisplayName}
                     aria-label="Doctor profile"
                   >
                     {doctorAvatarUrl ? (
                       <img src={doctorAvatarUrl} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-xs font-extrabold text-[#1E88E5]">
+                      <span className="text-[10px] sm:text-xs font-extrabold text-[#1E88E5]">
                         {doctorDisplayName.slice(0, 2).toUpperCase()}
                       </span>
                     )}
@@ -163,15 +173,16 @@ const Navbar: React.FC = () => {
                 </div>
               )}
 
-              {/* Right: welcome + logout */}
-              <div className="flex items-center gap-4">
+              {/* Logout — icon only on small screens */}
+              <div className="flex items-center shrink-0">
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-red-500 bg-red-50 hover:bg-red-100 transition-all duration-150 active:scale-95"
+                  className="flex items-center justify-center gap-1.5 sm:gap-2 p-1.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl text-sm font-semibold text-red-500 bg-red-50 hover:bg-red-100 transition-all duration-150 active:scale-95"
+                  aria-label="Logout"
                 >
                   <svg
-                    className="w-4 h-4"
+                    className="w-4 h-4 flex-shrink-0"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -183,7 +194,7 @@ const Navbar: React.FC = () => {
                       d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
                     />
                   </svg>
-                  Logout
+                  <span className="hidden sm:inline">Logout</span>
                 </button>
               </div>
             </div>
