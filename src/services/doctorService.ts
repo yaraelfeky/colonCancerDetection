@@ -20,25 +20,28 @@ export const doctorService = {
   async getProfile(): Promise<DoctorProfileDto | null> {
     let api: DoctorProfileDto | null = null;
     try {
-      const { data } = await axiosInstance.get<DoctorProfileDto | { data: DoctorProfileDto }>(
-        DOCTOR_PROFILE
-      );
+      const { data } = await axiosInstance.get<
+        DoctorProfileDto | { data: DoctorProfileDto }
+      >(DOCTOR_PROFILE);
       api = unwrap<DoctorProfileDto>(data) ?? null;
     } catch {
       api = null;
     }
     const local = readLocalProfile();
-    return mergeDoctorProfile(api, local);
+    const merged = mergeDoctorProfile(api, local);
+    writeLocalProfile(merged); // ضمان حفظ النسخة المدمجة
+    return merged;
   },
 
-  async updateProfile(body: Partial<DoctorProfileDto>): Promise<DoctorProfileDto | null> {
+  async updateProfile(
+    body: Partial<DoctorProfileDto>,
+  ): Promise<DoctorProfileDto | null> {
     writeLocalProfile(body);
 
     try {
-      const { data } = await axiosInstance.patch<DoctorProfileDto | { data: DoctorProfileDto }>(
-        DOCTOR_PROFILE,
-        body
-      );
+      const { data } = await axiosInstance.patch<
+        DoctorProfileDto | { data: DoctorProfileDto }
+      >(DOCTOR_PROFILE, body);
       const server = unwrap<DoctorProfileDto>(data);
       if (server && typeof server === "object") {
         writeLocalProfile(server);

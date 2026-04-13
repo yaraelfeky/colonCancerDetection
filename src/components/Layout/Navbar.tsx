@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import Container from "./Container";
 import { useAuth } from "../../Context/AuthContext";
+import { useDoctorProfile } from "../../Context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
 import { authService } from "../../services/authService";
 import { getEffectiveUserRole } from "../../utils/userRole";
-import { readLocalAvatarDataUrl, readLocalProfile } from "../../utils/localDoctorProfile";
+import { readLocalAvatarDataUrl } from "../../utils/localDoctorProfile";
 import {
   getUnreadNotificationCount,
   NOTIFICATIONS_UNREAD_EVENT,
@@ -29,13 +30,15 @@ const Navbar: React.FC = () => {
   useEffect(() => {
     const onProfile = () => setDoctorUiTick((n) => n + 1);
     window.addEventListener("colonai-local-profile-changed", onProfile);
-    return () => window.removeEventListener("colonai-local-profile-changed", onProfile);
+    return () =>
+      window.removeEventListener("colonai-local-profile-changed", onProfile);
   }, []);
 
   useEffect(() => {
     const onNotif = () => setNotifTick((n) => n + 1);
     window.addEventListener(NOTIFICATIONS_UNREAD_EVENT, onNotif);
-    return () => window.removeEventListener(NOTIFICATIONS_UNREAD_EVENT, onNotif);
+    return () =>
+      window.removeEventListener(NOTIFICATIONS_UNREAD_EVENT, onNotif);
   }, []);
 
   const handleLogout = () => {
@@ -43,12 +46,13 @@ const Navbar: React.FC = () => {
     navigate("/login", { replace: true });
   };
 
+  const doctorProfile = useDoctorProfile();
   const isDoctor = getEffectiveUserRole(authService.getToken()) === "doctor";
 
   const doctorAvatarUrl =
-    readLocalAvatarDataUrl() ?? readLocalProfile()?.profileImageUrl ?? undefined;
+    readLocalAvatarDataUrl() ?? doctorProfile?.profileImageUrl ?? undefined;
   const doctorDisplayName =
-    readLocalProfile()?.fullName?.trim() ||
+    doctorProfile?.fullName?.trim() ||
     user?.username?.trim() ||
     user?.email?.split("@")[0] ||
     "Doctor";
@@ -56,7 +60,9 @@ const Navbar: React.FC = () => {
   const services = [
     { label: "Patient", href: "/patient" },
     { label: "Appointment", href: "/appointment" },
-    ...(isDoctor ? [] : ([{ label: "Notifications", href: "/notifications" }] as const)),
+    ...(isDoctor
+      ? []
+      : ([{ label: "Notifications", href: "/notifications" }] as const)),
     { label: "Report History", href: "/reports" },
     { label: "Settings", href: "/settings" },
   ];
@@ -128,13 +134,23 @@ const Navbar: React.FC = () => {
                     className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center bg-gray-200/80 text-[#1E3A6E] hover:bg-gray-300/90 transition-colors no-underline"
                     aria-label="Settings"
                   >
-                    <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg
+                      className="w-4 h-4 sm:w-5 sm:h-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
                       />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
                     </svg>
                   </Link>
                   <Link
@@ -142,7 +158,13 @@ const Navbar: React.FC = () => {
                     className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center bg-gray-200/80 text-[#1E3A6E] hover:bg-gray-300/90 transition-colors no-underline"
                     aria-label="Notifications"
                   >
-                    <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg
+                      className="w-4 h-4 sm:w-5 sm:h-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -163,7 +185,11 @@ const Navbar: React.FC = () => {
                     aria-label="Doctor profile"
                   >
                     {doctorAvatarUrl ? (
-                      <img src={doctorAvatarUrl} alt="" className="w-full h-full object-cover" />
+                      <img
+                        src={doctorAvatarUrl}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
                     ) : (
                       <span className="text-[10px] sm:text-xs font-extrabold text-[#1E88E5]">
                         {doctorDisplayName.slice(0, 2).toUpperCase()}
