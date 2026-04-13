@@ -23,7 +23,6 @@ interface AuthContextValue extends AuthState {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-
 function readStoredUser(): User | null {
   const token = authService.getToken();
   if (!token) return null;
@@ -32,15 +31,20 @@ function readStoredUser(): User | null {
     const payload = JSON.parse(atob(token.split(".")[1] ?? "{}"));
 
     const email =
-      payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"] ??
+      (payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"] as string | undefined) ??
+      (payload.email as string | undefined) ??
+      (payload.sub as string | undefined) ??
       "";
 
     const username =
-      payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"] ??
+      (payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"] as string | undefined) ??
+      (payload.username as string | undefined) ??
+      (payload.unique_name as string | undefined) ??
       "";
 
     const role =
-      payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ??
+      (payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] as string | undefined) ??
+      (payload.role as string | undefined) ??
       "";
 
     if (!email) return null;
@@ -79,50 +83,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refreshAuth();
   }, [refreshAuth]);
 
-<<<<<<< HEAD
-  const login = useCallback(
-    async (dto: LoginRequestDto) => {
-      await authService.login(dto);
-      const token = authService.getToken();
-      const roleFromJwt = parseRoleFromJwt(token);
-      if (roleFromJwt) {
-        setStoredUserRole(roleFromJwt);
-      }
-      const user =
-        readStoredUser() ?? {
-          email: dto.usernameOrEmail,
-          username: dto.usernameOrEmail,
-        };
-      setState({
-        user,
-        isAuthenticated: true,
-        isLoading: false,
-      });
-    },
-    []
-  );
+  const login = useCallback(async (dto: LoginRequestDto, remember: boolean) => {
+    await authService.login(dto, remember);
+    const token = authService.getToken();
+    const roleFromJwt = parseRoleFromJwt(token);
+    if (roleFromJwt) {
+      setStoredUserRole(roleFromJwt);
+    }
+    const user =
+      readStoredUser() ?? {
+        email: dto.usernameOrEmail,
+        username: dto.usernameOrEmail,
+      };
+    setState({
+      user,
+      isAuthenticated: true,
+      isLoading: false,
+    });
+  }, []);
 
+  const register = useCallback(async (dto: RegisterRequestDto) => {
+    await authService.register(dto);
+    setStoredUserRole(dto.isDoctor ? "doctor" : "patient");
+    const user =
+      readStoredUser() ?? {
+        email: dto.email,
+        username: dto.username,
+      };
+    setState({
+      user,
+      isAuthenticated: true,
+      isLoading: false,
+    });
+  }, []);
 
-  const register = useCallback(
-    async (dto: RegisterRequestDto) => {
-      await authService.register(dto);
-      setStoredUserRole(dto.isDoctor ? "doctor" : "patient");
-      const user =
-        readStoredUser() ?? {
-          email: dto.email,
-          username: dto.username,
-        };
-      setState({
-        user,
-        isAuthenticated: true,
-        isLoading: false,
-      });
-    },
-    []
-  );
-
-=======
->>>>>>> 7c250aee54ed226d55c7ed7f991073484303f5d1
   const logout = useCallback(() => {
     authService.logout();
     clearStoredUserRole();
@@ -132,47 +126,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isLoading: false,
     });
   }, []);
-
-const login = useCallback(
-  async (dto: LoginRequestDto, remember: boolean) => {
-    const response = await authService.login(dto);
-
-    const token = response.accessToken;
-
-    if (!token) {
-      throw new Error("No access token received.");
-    }
-
-    if (remember) {
-      localStorage.setItem("token", token);
-    } else {
-      sessionStorage.setItem("token", token);
-    }
-
-    const user = readStoredUser();
-    if (!user) throw new Error("Invalid token.");
-
-    if (user.role !== "Doctor") {
-      logout();
-      throw new Error("You are not authorized. Doctors only.");
-    }
-
-    setState({
-      user,
-      isAuthenticated: true,
-      isLoading: false,
-    });
-  },
-  [logout]
-);
-
-  const register = useCallback(
-  async (dto: RegisterRequestDto) => {
-    await authService.register(dto);
-  },
-  []
-);
-
 
   const value: AuthContextValue = {
     ...state,

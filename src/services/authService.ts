@@ -17,6 +17,7 @@ function persistToken(token: string | null | undefined): void {
 
 function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(TOKEN_KEY);
 }
 
 function handleAuthResponse(data: AuthResponseDto): void {
@@ -34,10 +35,29 @@ function handleAuthResponse(data: AuthResponseDto): void {
   persistToken(token);
 }
 
+/** remember: true → localStorage; false → sessionStorage only */
+function persistTokenForLogin(token: string, remember: boolean): void {
+  clearToken();
+  if (remember) {
+    localStorage.setItem(TOKEN_KEY, token);
+  } else {
+    sessionStorage.setItem(TOKEN_KEY, token);
+  }
+}
+
 export const authService = {
-  async login(dto: LoginRequestDto): Promise<AuthResponseDto> {
+  async login(dto: LoginRequestDto, remember = true): Promise<AuthResponseDto> {
     const { data } = await axiosInstance.post<AuthResponseDto>(AUTH_LOGIN, dto);
-    handleAuthResponse(data);
+    if (!data.success) {
+      clearToken();
+      throw new Error(data.message || "Authentication failed");
+    }
+    const token = data.accessToken ?? data.token ?? null;
+    if (!token) {
+      clearToken();
+      throw new Error(data.message || "No token received");
+    }
+    persistTokenForLogin(token, remember);
     return data;
   },
 
@@ -62,6 +82,6 @@ export const authService = {
   },
 
   isAuthenticated(): boolean {
-    return !!localStorage.getItem(TOKEN_KEY);
+    return !!(localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY));
   },
 };
