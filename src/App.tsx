@@ -1,30 +1,3 @@
-// import React from "react";
-// import { Routes, Route, Navigate } from "react-router-dom";
-// import { ProtectedRoute } from "./components/ProtectedRoute";
-// import LoginPage from "./pages/auth/login";
-// import RegisterPage from "./pages/auth/register";
-// import Home from "./pages/Home/Home";
-
-// const App: React.FC = () => {
-//   return (
-//     <Routes>
-//       <Route path="/" element={<Navigate to="/login" replace />} />
-//       <Route path="/login" element={<LoginPage />} />
-//       <Route path="/register" element={<RegisterPage />} />
-//       <Route
-//         path="/dashboard"
-//         element={
-//           <ProtectedRoute>
-//             <Home />
-//           </ProtectedRoute>
-//         }
-//       />
-//     </Routes>
-//   );
-// };
-
-// export default App;
-
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -34,6 +7,8 @@ import Home from "./pages/Home/Home";
 import { DoctorRoute } from "./components/DoctorRoute";
 import DoctorProfileDashboard from "./pages/doctor/DoctorProfileDashboard";
 import NotificationsPage from "./pages/NotificationsPage";
+import DoctorAppointmentDashboardPage from "./pages/doctor/DoctorAppointmentDashboard";
+import ReportHistoryPage from "./pages/doctor/ReportHistoryPage";
 
 const App: React.FC = () => {
   return (
@@ -47,7 +22,7 @@ const App: React.FC = () => {
         element={
           <ProtectedRoute>
             <Home />
-          </ProtectedRoute>
+          </ProtectedRoute> 
         }
       />
 
@@ -61,10 +36,10 @@ const App: React.FC = () => {
         }
       />
       <Route
-        path="/appointment"
+        path="/appointments"
         element={
           <ProtectedRoute>
-            <div>Appointment page (coming soon)</div>
+            <DoctorAppointmentDashboardPage/>
           </ProtectedRoute>
         }
       />
@@ -80,7 +55,9 @@ const App: React.FC = () => {
         path="/reports"
         element={
           <ProtectedRoute>
-            <div>Report History page (coming soon)</div>
+            <DoctorRoute>
+              <ReportHistoryPage />
+            </DoctorRoute>
           </ProtectedRoute>
         }
       />

@@ -4,6 +4,8 @@ import HeroSection from "../../components/home/HeoSecton";
 import CTASection from "../../components/home/CTASection";
 import Navbar from "../../components/Layout/Navbar";
 import Footer from "../../components/Layout/Footer";
+import { useEffect } from "react";
+import { useLocation } from "react-router-dom";
 
 // data
 const features = [
@@ -232,8 +234,22 @@ const projectHighlights = [
   { label: "Project Type", value: "Graduation Project" },
 ];
 
+
 const Home: React.FC = () => {
   const [activeStep, setActiveStep] = useState<number>(0);
+  
+  const location = useLocation();
+
+  useEffect(() => {
+      if (location.hash) {
+        const id = location.hash.replace("#", "");
+        const el = document.getElementById(id);
+  
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth" });
+        }
+      }
+    }, [location]);
 
   return (
     <div

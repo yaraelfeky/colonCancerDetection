@@ -13,9 +13,9 @@ import {
 
 const navLinks = [
   { label: "Home", href: "/dashboard" },
-  { label: "About", href: "#about" },
-  { label: "Diagnosis", href: "#diagnosis" },
-  { label: "Contact", href: "#contact" },
+  { label: "About", href: "/dashboard#about" },
+  { label: "Diagnosis", href: "/dashboard#diagnosis" },
+  { label: "Contact", href: "/dashboard#contact" },
 ];
 
 const Navbar: React.FC = () => {
@@ -59,7 +59,7 @@ const Navbar: React.FC = () => {
 
   const services = [
     { label: "Patient", href: "/patient" },
-    { label: "Appointment", href: "/appointment" },
+    { label: "Appointment", href: "/appointments" },
     ...(isDoctor
       ? []
       : ([{ label: "Notifications", href: "/notifications" }] as const)),
