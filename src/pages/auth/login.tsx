@@ -140,7 +140,7 @@ const LoginPage: React.FC = () => {
             </button>
 
 
-            {/* <div className="auth-divider-wrap">
+            <div className="auth-divider-wrap">
               <span className="auth-divider-line" />
               <p className="auth-divider-text">or</p>
               <span className="auth-divider-line" />
@@ -149,7 +149,7 @@ const LoginPage: React.FC = () => {
             <button type="button" className="auth-btn-social">
               <span>G</span>
               Sign in with Google
-            </button> */}
+            </button>
 
             <p className="auth-form-footer">
               Don&apos;t have an account? <Link to="/register">Register</Link>

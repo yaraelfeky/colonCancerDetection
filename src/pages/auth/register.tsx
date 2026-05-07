@@ -3,10 +3,11 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../Context/AuthContext";
 import type { RegisterRequestDto } from "../../types/auth";
 import { getAxiosErrorMessage } from "../../utils/axiosError";
+import { getGoogleIdToken } from "../../utils/googleAuth";
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { register, googleLogin } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -47,6 +48,7 @@ const RegisterPage: React.FC = () => {
       professionalPracticeLicense?: string;
       issuingAuthority?: string;
       terms?: string;
+      submit?: string;
     } = {};
 
     if (!username.trim()) newErrors.username = "Please enter your user name.";
@@ -69,6 +71,9 @@ const RegisterPage: React.FC = () => {
       newErrors.confirmPassword = "Please confirm your password.";
     } else if (password !== confirmPassword) {
       newErrors.confirmPassword = "Passwords do not match.";
+    }
+    if (!isDoctor) {
+      newErrors.submit = "Only doctors can register.";
     }
     if (isDoctor) {
       if (!professionalPracticeLicense.trim()) {
@@ -116,6 +121,47 @@ const RegisterPage: React.FC = () => {
       setErrors({
         submit: getAxiosErrorMessage(err),
       });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleGoogleRegister = async () => {
+    const newErrors: typeof errors = {};
+
+    if (!isDoctor) {
+      newErrors.submit = "Only doctors can register. Please check 'I am a doctor'.";
+    }
+    if (isDoctor) {
+      if (!professionalPracticeLicense.trim()) {
+        newErrors.professionalPracticeLicense = "Please enter your professional practice license.";
+      }
+      if (!issuingAuthority.trim()) {
+        newErrors.issuingAuthority = "Please enter the issuing authority.";
+      }
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    setErrors({});
+    setIsSubmitting(true);
+    try {
+      const idToken = await getGoogleIdToken();
+      await googleLogin(
+        {
+          idToken,
+          isDoctor: true,
+          professionalPracticeLicense: professionalPracticeLicense.trim(),
+          issuingAuthority: issuingAuthority.trim(),
+        },
+        true
+      );
+      navigate("/dashboard", { replace: true });
+    } catch (err) {
+      setErrors({ submit: getAxiosErrorMessage(err) });
     } finally {
       setIsSubmitting(false);
     }
@@ -324,16 +370,16 @@ const RegisterPage: React.FC = () => {
               <span>→</span>
             </button>
 
-            {/* <div className="auth-divider-wrap">
+            <div className="auth-divider-wrap">
               <span className="auth-divider-line" />
               <p className="auth-divider-text">or</p>
               <span className="auth-divider-line" />
             </div>
 
-            <button type="button" className="auth-btn-social">
+            <button type="button" className="auth-btn-social" onClick={handleGoogleRegister} disabled={isSubmitting}>
               <span>G</span>
               Sign up with Google
-            </button> */}
+            </button>
 
             <p className="auth-form-footer">
               Already have an account? <Link to="/login">Sign in</Link>

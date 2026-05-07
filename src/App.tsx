@@ -9,6 +9,9 @@ import DoctorProfileDashboard from "./pages/doctor/DoctorProfileDashboard";
 import NotificationsPage from "./pages/NotificationsPage";
 import DoctorAppointmentDashboardPage from "./pages/doctor/DoctorAppointmentDashboard";
 import ReportHistoryPage from "./pages/doctor/ReportHistoryPage";
+import AdminDoctorsManagementPage from "./pages/admin/AdminDoctorsManagementPage";
+import { AdminRoute } from "./components/AdminRoute";
+import SettingsPage from "./pages/SettingsPage";
 
 const App: React.FC = () => {
   return (
@@ -65,7 +68,7 @@ const App: React.FC = () => {
         path="/settings"
         element={
           <ProtectedRoute>
-            <div>Settings page (coming soon)</div>
+            <SettingsPage />
           </ProtectedRoute>
         }
       />
@@ -76,6 +79,16 @@ const App: React.FC = () => {
             <DoctorRoute>
               <DoctorProfileDashboard />
             </DoctorRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/doctors"
+        element={
+          <ProtectedRoute>
+            <AdminRoute>
+              <AdminDoctorsManagementPage />
+            </AdminRoute>
           </ProtectedRoute>
         }
       />

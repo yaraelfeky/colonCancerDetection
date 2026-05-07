@@ -6,8 +6,8 @@ import {
   writeLocalProfile,
 } from "../utils/localDoctorProfile";
 
-/** Change to match your backend (e.g. /api/doctors/me) */
-const DOCTOR_PROFILE = "/api/Doctor/profile";
+/** Backend doctor profile endpoints */
+const DOCTOR_PROFILE = "/api/Doctor";
 
 function unwrap<T>(raw: unknown): T {
   if (raw && typeof raw === "object" && "data" in (raw as object)) {
@@ -39,7 +39,7 @@ export const doctorService = {
     writeLocalProfile(body);
 
     try {
-      const { data } = await axiosInstance.patch<
+      const { data } = await axiosInstance.put<
         DoctorProfileDto | { data: DoctorProfileDto }
       >(DOCTOR_PROFILE, body);
       const server = unwrap<DoctorProfileDto>(data);

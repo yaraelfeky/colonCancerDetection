@@ -7,7 +7,11 @@ import React, {
 } from "react";
 import { authService } from "../services/authService";
 import { doctorService } from "../services/doctorService";
-import type { LoginRequestDto, RegisterRequestDto } from "../types/auth";
+import type {
+  GoogleLoginRequestDto,
+  LoginRequestDto,
+  RegisterRequestDto,
+} from "../types/auth";
 import type { DoctorProfileDto } from "../types/doctor";
 import {
   clearStoredUserRole,
@@ -31,8 +35,12 @@ interface AuthState {
 
 interface AuthContextValue extends AuthState {
   login: (dto: LoginRequestDto, remember: boolean) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   register: (dto: RegisterRequestDto) => Promise<void>;
+  googleLogin: (dto: GoogleLoginRequestDto, remember: boolean) => Promise<void>;
+  updateMail: (newEmail: string) => Promise<void>;
+  updateUsername: (newUsername: string) => Promise<void>;
+  updatePassword: (password: string, newPassword: string, confirmNewPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -136,8 +144,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [refreshAuth],
   );
 
+  const googleLogin = useCallback(
+    async (dto: GoogleLoginRequestDto, remember: boolean) => {
+      await authService.googleLogin(dto, remember);
+      await refreshAuth();
+    },
+    [refreshAuth],
+  );
+
   const logout = useCallback(async () => {
-    authService.logout();
+    await authService.logout();
     clearStoredUserRole();
     localStorage.removeItem("colonai_doctor_profile_v1");
     localStorage.removeItem("colonai_doctor_avatar_dataurl");
@@ -150,11 +166,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const updateMail = useCallback(
+    async (newEmail: string) => {
+      await authService.updateMail({ newEmail });
+      await refreshAuth();
+    },
+    [refreshAuth],
+  );
+
+  const updateUsername = useCallback(
+    async (newUserName: string) => {
+      await authService.updateUsername({ newUserName });
+      await refreshAuth();
+    },
+    [refreshAuth],
+  );
+
+  const updatePassword = useCallback(
+    async (password: string, newPassword: string, confirmNewPassword: string) => {
+      await authService.updatePassword({ password, newPassword, confirmNewPassword });
+    },
+    [],
+  );
+
   const value: AuthContextValue = {
     ...state,
     login,
     logout,
     register,
+    googleLogin,
+    updateMail,
+    updateUsername,
+    updatePassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

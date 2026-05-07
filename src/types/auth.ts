@@ -28,3 +28,34 @@ export interface AuthResponseDto {
   accessTokenExpiration?: string | null;
   refreshTokenExpiration?: string | null;
 }
+
+/** POST /api/Auth/google-login */
+export interface GoogleLoginRequestDto {
+  idToken: string;
+  isDoctor: boolean;
+  issuingAuthority: string | null;
+  professionalPracticeLicense: string | null;
+}
+
+/** POST /api/Auth/refresh-token */
+export interface RefreshTokenRequestDto {
+  refreshToken: string;
+}
+
+/** PUT /api/Auth/updateMail */
+export interface UpdateMailDto {
+  newEmail: string;
+}
+
+/** PUT /api/Auth/updateUsername — note: capital N in UserName */
+export interface UpdateUsernameDto {
+  newUserName: string | null;
+}
+
+/** PUT /api/Auth/updatePassword */
+export interface UpdatePasswordDto {
+  password: string;
+  newPassword: string;
+  confirmNewPassword: string;
+}
+
