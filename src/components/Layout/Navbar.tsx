@@ -115,9 +115,9 @@ const Navbar: React.FC = () => {
                 }}
               >
                 Diagnosis
-              </a>
-              <a
-                href="#diagnosis"
+              </Link>
+              <Link
+                to="/diagnosis"
                 className="hidden md:inline-flex no-underline items-center gap-2 px-3 py-2 rounded-2xl text-sm font-bold text-white transition-all duration-200 hover:opacity-90 active:scale-95 flex-shrink-0"
                 style={{
                   background: "#1E88E5",
