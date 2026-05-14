@@ -58,7 +58,8 @@ const Navbar: React.FC = () => {
     "Doctor";
 
   const services = [
-    { label: "Patient", href: "/patient" },
+    { label: "Patients", href: "/patient" },
+    { label: "AI Diagnosis", href: "/diagnosis" },
     { label: "Appointment", href: "/appointments" },
     ...(isDoctor
       ? []
@@ -106,8 +107,8 @@ const Navbar: React.FC = () => {
 
             <div className="flex w-full min-w-0 sm:w-auto sm:flex-1 flex-wrap items-center justify-end gap-x-1 gap-y-1.5 sm:gap-x-3 md:gap-x-4">
               {/* CTA — compact on small phones, full from md */}
-              <a
-                href="#diagnosis"
+              <Link
+                to="/diagnosis"
                 className="inline-flex md:hidden no-underline items-center px-2 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold text-white transition-all active:scale-95 shrink-0"
                 style={{
                   background: "#1E88E5",
@@ -115,9 +116,9 @@ const Navbar: React.FC = () => {
                 }}
               >
                 Diagnosis
-              </a>
-              <a
-                href="#diagnosis"
+              </Link>
+              <Link
+                to="/diagnosis"
                 className="hidden md:inline-flex no-underline items-center gap-2 px-3 py-2 rounded-2xl text-sm font-bold text-white transition-all duration-200 hover:opacity-90 active:scale-95 flex-shrink-0"
                 style={{
                   background: "#1E88E5",
@@ -125,7 +126,7 @@ const Navbar: React.FC = () => {
                 }}
               >
                 Start Diagnosis
-              </a>
+              </Link>
 
               {isDoctor && (
                 <div className="flex items-center gap-0.5 sm:gap-2 md:gap-3 shrink-0">
@@ -377,7 +378,7 @@ const Navbar: React.FC = () => {
 
             {/* Mobile: simple Diagnosis link */}
             <div className="md:hidden flex items-center gap-3 w-full justify-end">
-              <a href="#diagnosis" className="text-white text-sm font-bold">
+              <a href="/dashboard#diagnosis" className="text-white text-sm font-bold no-underline">
                 Diagnosis
               </a>
             </div>
@@ -420,13 +421,13 @@ const Navbar: React.FC = () => {
               ))}
             </div>
 
-            <a
-              href="#diagnosis"
-              className="mt-2 px-4 py-2.5 text-sm font-bold text-[#1E88E5] bg-white rounded-lg text-center"
+            <Link
+              to="/diagnosis"
+              className="mt-2 px-4 py-2.5 text-sm font-bold text-[#1E88E5] bg-white rounded-lg text-center no-underline"
               onClick={() => setMenuOpen(false)}
             >
               START DIAGNOSIS
-            </a>
+            </Link>
           </div>
         </Container>
       </div>

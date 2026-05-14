@@ -1,4 +1,5 @@
 import Container from "../Layout/Container";
+import { Link } from "react-router-dom";
 
 const CTASection = () => {
   return (
@@ -19,16 +20,16 @@ const CTASection = () => {
               <p className="relative z-10 text-blue-100 mb-8 max-w-md leading-relaxed">
                 Upload your first colonoscopy image and receive AI-assisted results in under 3 seconds.
               </p>
-              <a
-                href="#diagnosis"
-                className="relative z-10 inline-flex items-center gap-2 px-8 py-3.5 rounded-xl text-sm font-bold bg-white hover:bg-blue-50 transition-all duration-200 hover:shadow-xl active:scale-95"
+              <Link
+                to="/diagnosis"
+                className="relative z-10 inline-flex items-center gap-2 px-8 py-3.5 rounded-xl text-sm font-bold bg-white hover:bg-blue-50 transition-all duration-200 hover:shadow-xl active:scale-95 no-underline"
                 style={{ color: "#1E88E5" }}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
                 Start Diagnosis
-              </a>
+              </Link>
             </div>
           </Container>
         </section>

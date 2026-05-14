@@ -9,6 +9,8 @@ import DoctorProfileDashboard from "./pages/doctor/DoctorProfileDashboard";
 import NotificationsPage from "./pages/NotificationsPage";
 import DoctorAppointmentDashboardPage from "./pages/doctor/DoctorAppointmentDashboard";
 import ReportHistoryPage from "./pages/doctor/ReportHistoryPage";
+import DiagnosisPage from "./pages/doctor/DiagnosisPage";
+import PatientsListPage from "./pages/patient/PatientPage";
 import AdminDoctorsManagementPage from "./pages/admin/AdminDoctorsManagementPage";
 import { AdminRoute } from "./components/AdminRoute";
 import SettingsPage from "./pages/SettingsPage";
@@ -29,12 +31,13 @@ const App: React.FC = () => {
         }
       />
 
-      {/* Services pages (empty for now) */}
       <Route
         path="/patient"
         element={
           <ProtectedRoute>
-            <div>Patient page (coming soon)</div>
+            <DoctorRoute>
+              <PatientsListPage />
+            </DoctorRoute>
           </ProtectedRoute>
         }
       />
@@ -60,6 +63,16 @@ const App: React.FC = () => {
           <ProtectedRoute>
             <DoctorRoute>
               <ReportHistoryPage />
+            </DoctorRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/diagnosis"
+        element={
+          <ProtectedRoute>
+            <DoctorRoute>
+              <DiagnosisPage />
             </DoctorRoute>
           </ProtectedRoute>
         }
