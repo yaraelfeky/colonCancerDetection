@@ -32,9 +32,14 @@ export interface AuthResponseDto {
 /** POST /api/Auth/google-login */
 export interface GoogleLoginRequestDto {
   idToken: string;
+}
+
+/** POST /api/Auth/google-register */
+export interface GoogleRegisterRequestDto {
+  idToken: string;
   isDoctor: boolean;
-  issuingAuthority: string | null;
-  professionalPracticeLicense: string | null;
+  professionalPracticeLicense: string;
+  issuingAuthority: string;
 }
 
 /** POST /api/Auth/refresh-token */

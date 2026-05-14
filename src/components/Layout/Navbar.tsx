@@ -47,7 +47,7 @@ const Navbar: React.FC = () => {
   };
 
   const doctorProfile = useDoctorProfile();
-  const isDoctor = getEffectiveUserRole(authService.getToken()) === "doctor";
+  const isAdmin = getEffectiveUserRole(authService.getToken()) === "Admin";
 
   const doctorAvatarUrl =
     readLocalAvatarDataUrl() ?? doctorProfile?.profileImageUrl ?? undefined;
@@ -60,11 +60,10 @@ const Navbar: React.FC = () => {
   const services = [
     { label: "Patient", href: "/patient" },
     { label: "Appointment", href: "/appointments" },
-    ...(isDoctor
-      ? []
-      : ([{ label: "Notifications", href: "/notifications" }] as const)),
     { label: "Report History", href: "/reports" },
+    { label: "Notifications", href: "/notifications" },
     { label: "Settings", href: "/settings" },
+    ...(isAdmin ? [{ label: "Management", href: "/ManagementPage" }] : [])
   ];
 
   const unreadNotifications = getUnreadNotificationCount();
@@ -117,7 +116,7 @@ const Navbar: React.FC = () => {
                 Diagnosis
               </a>
               <a
-                href="#diagnosis"
+                href = "/dashboard#diagnosis" 
                 className="hidden md:inline-flex no-underline items-center gap-2 px-3 py-2 rounded-2xl text-sm font-bold text-white transition-all duration-200 hover:opacity-90 active:scale-95 flex-shrink-0"
                 style={{
                   background: "#1E88E5",
@@ -127,7 +126,7 @@ const Navbar: React.FC = () => {
                 Start Diagnosis
               </a>
 
-              {isDoctor && (
+              {true &&  (
                 <div className="flex items-center gap-0.5 sm:gap-2 md:gap-3 shrink-0">
                   <Link
                     to="/settings"

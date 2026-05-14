@@ -2,11 +2,12 @@ import React, { useState, FormEvent } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../Context/AuthContext";
 import { getAxiosErrorMessage } from "../../utils/axiosError";
+import { getGoogleIdToken } from "../../utils/googleAuth";
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
+  const { login, googleLogin } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [usernameOrEmail, setUsernameOrEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -45,9 +46,60 @@ const LoginPage: React.FC = () => {
       const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? "/dashboard";
       navigate(from, { replace: true });
     } catch (err) {
-      setErrors({
-        submit: getAxiosErrorMessage(err),
-      });
+      const msg = getAxiosErrorMessage(err);
+      // Check for pending approval message from backend
+      const lower = msg.toLowerCase();
+      if (
+        lower.includes("pending") ||
+        lower.includes("not approved") ||
+        lower.includes("approval")
+      ) {
+        setErrors({
+          submit: "Your account is pending admin approval.",
+        });
+      } else {
+        setErrors({
+          submit: msg,
+        });
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+
+  const handleGoogleLogin = async () => {
+    setErrors({});
+    setIsSubmitting(true);
+    try {
+      const idToken = await getGoogleIdToken();
+      await googleLogin({ idToken }, rememberMe);
+      const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? "/dashboard";
+      navigate(from, { replace: true });
+    } catch (err) {
+      const msg = getAxiosErrorMessage(err);
+      const lower = msg.toLowerCase();
+      if (
+        lower.includes("pending") ||
+        lower.includes("not approved") ||
+        lower.includes("approval")
+      ) {
+        setErrors({
+          submit: "Your account is pending admin approval.",
+        });
+      } else if (
+        lower.includes("not registered") ||
+        lower.includes("no account") ||
+        lower.includes("not found") ||
+        lower.includes("user not found")
+      ) {
+        // User doesn't exist, redirect to register
+        setErrors({
+          submit: "No account found. Please register first.",
+        });
+      } else {
+        setErrors({ submit: msg });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -122,7 +174,7 @@ const LoginPage: React.FC = () => {
               {errors.password && <p className="auth-error-msg">{errors.password}</p>}
             </div>
 
-            <div className="auth-check-wrap">
+            {/* <div className="auth-check-wrap">
               <input
                 id="remember"
                 type="checkbox"
@@ -130,7 +182,7 @@ const LoginPage: React.FC = () => {
                 onChange={(e) => setRememberMe(e.target.checked)}
               />
               <label htmlFor="remember">Remember me</label>
-            </div>
+            </div> */}
 
             {errors.submit && <p className="auth-error-msg">{errors.submit}</p>}
 
@@ -146,7 +198,7 @@ const LoginPage: React.FC = () => {
               <span className="auth-divider-line" />
             </div>
 
-            <button type="button" className="auth-btn-social">
+            <button type="button" className="auth-btn-social" onClick={handleGoogleLogin} disabled={isSubmitting}>
               <span>G</span>
               Sign in with Google
             </button>

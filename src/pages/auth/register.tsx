@@ -1,13 +1,10 @@
 import React, { useState, FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../../Context/AuthContext";
-import type { RegisterRequestDto } from "../../types/auth";
-import { getAxiosErrorMessage } from "../../utils/axiosError";
 import { getGoogleIdToken } from "../../utils/googleAuth";
+import { getAxiosErrorMessage } from "../../utils/axiosError";
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
-  const { register, googleLogin } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -16,9 +13,6 @@ const RegisterPage: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isDoctor, setIsDoctor] = useState(false);
-  const [professionalPracticeLicense, setProfessionalPracticeLicense] = useState("");
-  const [issuingAuthority, setIssuingAuthority] = useState("");
   const [termsChecked, setTermsChecked] = useState(false);
   const [errors, setErrors] = useState<{
     username?: string;
@@ -26,8 +20,6 @@ const RegisterPage: React.FC = () => {
     phoneNumber?: string;
     password?: string;
     confirmPassword?: string;
-    professionalPracticeLicense?: string;
-    issuingAuthority?: string;
     terms?: string;
     submit?: string;
   }>({});
@@ -45,8 +37,6 @@ const RegisterPage: React.FC = () => {
       phoneNumber?: string;
       password?: string;
       confirmPassword?: string;
-      professionalPracticeLicense?: string;
-      issuingAuthority?: string;
       terms?: string;
       submit?: string;
     } = {};
@@ -72,17 +62,6 @@ const RegisterPage: React.FC = () => {
     } else if (password !== confirmPassword) {
       newErrors.confirmPassword = "Passwords do not match.";
     }
-    if (!isDoctor) {
-      newErrors.submit = "Only doctors can register.";
-    }
-    if (isDoctor) {
-      if (!professionalPracticeLicense.trim()) {
-        newErrors.professionalPracticeLicense = "Please enter your professional practice license.";
-      }
-      if (!issuingAuthority.trim()) {
-        newErrors.issuingAuthority = "Please enter the issuing authority.";
-      }
-    }
     if (!termsChecked) {
       newErrors.terms = "You must accept the Terms & Conditions.";
     }
@@ -93,73 +72,32 @@ const RegisterPage: React.FC = () => {
     }
 
     setErrors({});
-    setIsSubmitting(true);
 
-    try {
-      const dto: RegisterRequestDto = {
-        username: username.trim(),
-        email: email.trim(),
-        phoneNumber: phoneNumber.trim(),
-        password,
-        confirmPassword,
-        isDoctor,
-      };
-      if (isDoctor) {
-        dto.professionalPracticeLicense = professionalPracticeLicense.trim();
-        dto.issuingAuthority = issuingAuthority.trim();
-      }
-
-      await register(dto);
-
-      navigate("/login", {
-        replace: true,
-        state: {
-          successMessage: "Registration successful. Please sign in.",
+    // Redirect to verification page with form data — do NOT register yet
+    navigate("/verify", {
+      state: {
+        registrationData: {
+          username: username.trim(),
+          email: email.trim(),
+          phoneNumber: phoneNumber.trim(),
+          password,
+          confirmPassword,
         },
-      });
-    } catch (err) {
-      setErrors({
-        submit: getAxiosErrorMessage(err),
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+      },
+    });
   };
 
   const handleGoogleRegister = async () => {
-    const newErrors: typeof errors = {};
-
-    if (!isDoctor) {
-      newErrors.submit = "Only doctors can register. Please check 'I am a doctor'.";
-    }
-    if (isDoctor) {
-      if (!professionalPracticeLicense.trim()) {
-        newErrors.professionalPracticeLicense = "Please enter your professional practice license.";
-      }
-      if (!issuingAuthority.trim()) {
-        newErrors.issuingAuthority = "Please enter the issuing authority.";
-      }
-    }
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
-
     setErrors({});
     setIsSubmitting(true);
     try {
       const idToken = await getGoogleIdToken();
-      await googleLogin(
-        {
-          idToken,
-          isDoctor: true,
-          professionalPracticeLicense: professionalPracticeLicense.trim(),
-          issuingAuthority: issuingAuthority.trim(),
+      // Redirect to verification page with Google token — do NOT register yet
+      navigate("/verify", {
+        state: {
+          googleIdToken: idToken,
         },
-        true
-      );
-      navigate("/dashboard", { replace: true });
+      });
     } catch (err) {
       setErrors({ submit: getAxiosErrorMessage(err) });
     } finally {
@@ -293,62 +231,6 @@ const RegisterPage: React.FC = () => {
               </div>
               {errors.confirmPassword && <p className="auth-error-msg">{errors.confirmPassword}</p>}
             </div>
-
-            <div className="auth-check-wrap">
-              <input
-                id="isDoctor"
-                type="checkbox"
-                checked={isDoctor}
-                onChange={(e) => {
-                  setIsDoctor(e.target.checked);
-                  if (!e.target.checked) {
-                    setProfessionalPracticeLicense("");
-                    setIssuingAuthority("");
-                  }
-                }}
-              />
-              <label htmlFor="isDoctor">I am a doctor</label>
-            </div>
-
-            {isDoctor && (
-              <>
-                <div className="auth-input-wrap">
-                  <label className="auth-label" htmlFor="professionalPracticeLicense">
-                    Professional Practice License
-                  </label>
-                  <input
-                    id="professionalPracticeLicense"
-                    type="text"
-                    className={`auth-input ${errors.professionalPracticeLicense ? "error" : ""}`}
-                    placeholder="License number"
-                    value={professionalPracticeLicense}
-                    onChange={(e) => {
-                      setProfessionalPracticeLicense(e.target.value);
-                      clearError("professionalPracticeLicense");
-                    }}
-                  />
-                  {errors.professionalPracticeLicense && (
-                    <p className="auth-error-msg">{errors.professionalPracticeLicense}</p>
-                  )}
-                </div>
-
-                <div className="auth-input-wrap">
-                  <label className="auth-label" htmlFor="issuingAuthority">Issuing Authority</label>
-                  <input
-                    id="issuingAuthority"
-                    type="text"
-                    className={`auth-input ${errors.issuingAuthority ? "error" : ""}`}
-                    placeholder="Authority name"
-                    value={issuingAuthority}
-                    onChange={(e) => {
-                      setIssuingAuthority(e.target.value);
-                      clearError("issuingAuthority");
-                    }}
-                  />
-                  {errors.issuingAuthority && <p className="auth-error-msg">{errors.issuingAuthority}</p>}
-                </div>
-              </>
-            )}
 
             <div className="auth-check-wrap">
               <input

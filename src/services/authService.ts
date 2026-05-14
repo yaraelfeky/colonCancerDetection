@@ -2,6 +2,7 @@ import { axiosInstance } from "../api/axiosInstance";
 import type {
   AuthResponseDto,
   GoogleLoginRequestDto,
+  GoogleRegisterRequestDto,
   LoginRequestDto,
   RegisterRequestDto,
   UpdateMailDto,
@@ -12,6 +13,7 @@ import type {
 const AUTH_LOGIN = "/api/Auth/login";
 const AUTH_REGISTER = "/api/Auth/register";
 const AUTH_GOOGLE_LOGIN = "/api/Auth/google-login";
+const AUTH_GOOGLE_REGISTER = "/api/Auth/google-register";
 const AUTH_REFRESH = "/api/Auth/refresh-token";
 const AUTH_LOGOUT = "/api/Auth/logout";
 const AUTH_UPDATE_MAIL = "/api/Auth/updateMail";
@@ -52,19 +54,31 @@ function handleAuthResponse(data: AuthResponseDto): void {
 }
 
 /** remember: true → localStorage; false → sessionStorage only */
+// function persistTokenForLogin(
+//   token: string,
+//   refreshToken: string | null,
+//   remember: boolean
+// ): void {
+//   clearToken();
+//   localStorage.setItem(REMEMBER_KEY, remember ? "1" : "0");
+//   if (remember) {
+//     localStorage.setItem(TOKEN_KEY, token);
+//     if (refreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+//   } else {
+//     sessionStorage.setItem(TOKEN_KEY, token);
+//     if (refreshToken) sessionStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+//   }
+// }
 function persistTokenForLogin(
   token: string,
-  refreshToken: string | null,
-  remember: boolean
+  refreshToken: string | null
 ): void {
   clearToken();
-  localStorage.setItem(REMEMBER_KEY, remember ? "1" : "0");
-  if (remember) {
-    localStorage.setItem(TOKEN_KEY, token);
-    if (refreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-  } else {
-    sessionStorage.setItem(TOKEN_KEY, token);
-    if (refreshToken) sessionStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+
+  localStorage.setItem(TOKEN_KEY, token);
+
+  if (refreshToken) {
+    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
   }
 }
 
@@ -84,13 +98,16 @@ export const authService = {
       clearToken();
       throw new Error(data.message || "No token received");
     }
-    persistTokenForLogin(token, data.refreshToken ?? null, remember);
+    persistTokenForLogin(token, data.refreshToken ?? null);
     return data;
   },
 
   async register(dto: RegisterRequestDto): Promise<AuthResponseDto> {
     const { data } = await axiosInstance.post<AuthResponseDto>(AUTH_REGISTER, dto);
-    handleAuthResponse(data);
+    if (!data.success) {
+      throw new Error(data.message || "Registration failed");
+    }
+    // Do NOT persist token — user is pending approval
     return data;
   },
 
@@ -111,7 +128,19 @@ export const authService = {
       clearToken();
       throw new Error(data.message || "No token received");
     }
-    persistTokenForLogin(token, data.refreshToken ?? null, remember);
+    persistTokenForLogin(token, data.refreshToken ?? null);;
+    return data;
+  },
+
+  async googleRegister(dto: GoogleRegisterRequestDto): Promise<AuthResponseDto> {
+    const { data } = await axiosInstance.post<AuthResponseDto>(
+      AUTH_GOOGLE_REGISTER,
+      dto
+    );
+    if (!data.success) {
+      throw new Error(data.message || "Google registration failed");
+    }
+    // Do NOT persist token — user is pending approval
     return data;
   },
 
@@ -132,8 +161,8 @@ export const authService = {
     }
 
     // Persist using same storage preference
-    const remember = localStorage.getItem(REMEMBER_KEY) === "1";
-    persistTokenForLogin(newToken, data.refreshToken ?? refreshToken, remember);
+
+    persistTokenForLogin(newToken, data.refreshToken ?? refreshToken);
     return newToken;
   },
 

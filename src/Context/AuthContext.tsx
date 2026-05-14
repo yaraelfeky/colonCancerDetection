@@ -9,6 +9,7 @@ import { authService } from "../services/authService";
 import { doctorService } from "../services/doctorService";
 import type {
   GoogleLoginRequestDto,
+  GoogleRegisterRequestDto,
   LoginRequestDto,
   RegisterRequestDto,
 } from "../types/auth";
@@ -38,6 +39,7 @@ interface AuthContextValue extends AuthState {
   logout: () => Promise<void>;
   register: (dto: RegisterRequestDto) => Promise<void>;
   googleLogin: (dto: GoogleLoginRequestDto, remember: boolean) => Promise<void>;
+  googleRegister: (dto: GoogleRegisterRequestDto) => Promise<void>;
   updateMail: (newEmail: string) => Promise<void>;
   updateUsername: (newUsername: string) => Promise<void>;
   updatePassword: (password: string, newPassword: string, confirmNewPassword: string) => Promise<void>;
@@ -139,9 +141,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = useCallback(
     async (dto: RegisterRequestDto) => {
       await authService.register(dto);
-      await refreshAuth();
+      // Do NOT call refreshAuth — user is pending admin approval
     },
-    [refreshAuth],
+    [],
+  );
+
+  const googleRegister = useCallback(
+    async (dto: GoogleRegisterRequestDto) => {
+      await authService.googleRegister(dto);
+      // Do NOT call refreshAuth — user is pending admin approval
+    },
+    [],
   );
 
   const googleLogin = useCallback(
@@ -195,6 +205,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     logout,
     register,
     googleLogin,
+    googleRegister,
     updateMail,
     updateUsername,
     updatePassword,
