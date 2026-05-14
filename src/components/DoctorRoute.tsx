@@ -10,7 +10,7 @@ interface DoctorRouteProps {
 /** Allows access only when the user is a doctor (JWT claim or stored role after register). */
 export function DoctorRoute({ children }: DoctorRouteProps) {
   const role = getEffectiveUserRole(authService.getToken());
-  if (role !== "doctor") {
+  if (role !== "Doctor") {
     return <Navigate to="/dashboard" replace />;
   }
   return <>{children}</>;

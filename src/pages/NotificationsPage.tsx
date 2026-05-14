@@ -17,8 +17,7 @@ export default function NotificationsPage() {
           <h1 className="text-2xl font-extrabold text-gray-900 m-0 mb-2">Notifications</h1>
           <p className="text-gray-500 m-0 mb-6">No new notifications right now.</p>
           <div className="rounded-2xl bg-white border border-gray-100 p-8 text-center text-gray-400">
-            When messages arrive from your backend, they will appear here. The blue dot on the bell only shows
-            while there are unread items.
+            No new messages yet.
           </div>
         </Container>
       </main>

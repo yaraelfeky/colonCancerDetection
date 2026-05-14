@@ -4,6 +4,8 @@ import Navbar from "../../components/Layout/Navbar";
 import Footer from "../../components/Layout/Footer";
 import { useAuth } from "../../Context/AuthContext";
 import { doctorService } from "../../services/doctorService";
+import { isAdminFromJwt } from "../../utils/authRoles";
+import { authService } from "../../services/authService";
 import type {
   DoctorAchievementDto,
   DoctorEducationDto,
@@ -140,7 +142,7 @@ function BarChartMini({ labels, values }: { labels: string[]; values: number[] }
   );
 }
 
-type TabId = "overview" | "schedule" | "stats" | "reviews";
+type TabId = "overview" | "schedule" | "stats" | "reviews" | "management";
 
 const defaultSchedule = (): DoctorScheduleSlotDto[] =>
   EN_DAYS.map((dayName, dayOfWeek) => ({
@@ -150,6 +152,8 @@ const defaultSchedule = (): DoctorScheduleSlotDto[] =>
     endTime: "14:00",
     isAvailable: dayOfWeek !== 5 && dayOfWeek !== 6,
   }));
+  
+// const isAdmin = isAdminFromJwt(authService.getToken());
 
 const sidebarNav: { id: TabId; label: string; path: string }[] = [
   { id: "overview", label: "Overview", path: "M4 6h16M4 12h16M4 18h7" },
@@ -593,7 +597,7 @@ export default function DoctorProfileDashboard() {
                         </span>
                       </li>
                     </ul>
-                    <Link to="/appointment" className="mt-6 inline-flex items-center gap-2 text-sm font-bold no-underline" style={{ color: PRIMARY }}>
+                    <Link to="/appointments" className="mt-6 inline-flex items-center gap-2 text-sm font-bold no-underline" style={{ color: PRIMARY }}>
                       Open appointments
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -931,13 +935,6 @@ function ReviewsPanel({
           </div>
         </div>
 
-        <div className="rounded-3xl p-5 border border-dashed border-gray-200 bg-white/60">
-          <p className="text-xs font-bold text-gray-500 m-0">
-            Tip: backend can send <code className="text-[11px] bg-gray-100 px-1 rounded">verified</code>,{" "}
-            <code className="text-[11px] bg-gray-100 px-1 rounded">visitType</code>, and{" "}
-            <code className="text-[11px] bg-gray-100 px-1 rounded">helpfulCount</code> per review.
-          </p>
-        </div>
       </div>
 
       <div className="xl:col-span-8 space-y-4">

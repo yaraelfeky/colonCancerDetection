@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import LoginPage from "./pages/auth/login";
 import RegisterPage from "./pages/auth/register";
+import VerificationPage from "./pages/auth/VerificationPage";
 import Home from "./pages/Home/Home";
 import { DoctorRoute } from "./components/DoctorRoute";
 import DoctorProfileDashboard from "./pages/doctor/DoctorProfileDashboard";
@@ -21,6 +22,7 @@ const App: React.FC = () => {
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/verify" element={<VerificationPage />} />
 
       <Route
         path="/dashboard"
@@ -46,6 +48,14 @@ const App: React.FC = () => {
         element={
           <ProtectedRoute>
             <DoctorAppointmentDashboardPage/>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/ManagementPage"
+        element={
+          <ProtectedRoute>
+            <AdminDoctorsManagementPage/>
           </ProtectedRoute>
         }
       />
@@ -85,13 +95,21 @@ const App: React.FC = () => {
           </ProtectedRoute>
         }
       />
-      <Route
+      {/* <Route
         path="/doctor/profile"
         element={
           <ProtectedRoute>
             <DoctorRoute>
               <DoctorProfileDashboard />
             </DoctorRoute>
+          </ProtectedRoute>
+        }
+      /> */}
+      <Route
+        path="/doctor/profile"
+        element={
+          <ProtectedRoute>
+            <DoctorProfileDashboard />
           </ProtectedRoute>
         }
       />

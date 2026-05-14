@@ -20,9 +20,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  if (!isAuthenticated || user?.role !== "Doctor") {
-  return <Navigate to="/login" state={{ from: location }} replace />;
-}
+  const role = user?.role?.toLowerCase();
+  if (!isAuthenticated || (role !== "doctor" && role !== "admin")) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
 
   return <>{children}</>;
 }
