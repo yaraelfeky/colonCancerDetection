@@ -18,7 +18,7 @@ const CTASection = () => {
                 Ready to Start a Diagnosis?
               </h2>
               <p className="relative z-10 text-blue-100 mb-8 max-w-md leading-relaxed">
-                Upload your first colonoscopy image and receive AI-assisted results in under 3 seconds.
+                Upload your colonoscopy image and receive AI-assisted results in under 3 seconds.
               </p>
               <Link
                 to="/diagnosis"

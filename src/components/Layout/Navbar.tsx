@@ -59,7 +59,7 @@ const Navbar: React.FC = () => {
 
   const services = [
     { label: "Patients", href: "/patient" },
-    { label: "AI Diagnosis", href: "/diagnosis" },
+    // { label: "AI Diagnosis", href: "/diagnosis" },
     { label: "Appointment", href: "/appointments" },
     { label: "Report History", href: "/reports" },
     { label: "Notifications", href: "/notifications" },

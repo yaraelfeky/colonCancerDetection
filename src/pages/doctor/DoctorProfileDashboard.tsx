@@ -4,8 +4,7 @@ import Navbar from "../../components/Layout/Navbar";
 import Footer from "../../components/Layout/Footer";
 import { useAuth } from "../../Context/AuthContext";
 import { doctorService } from "../../services/doctorService";
-import { isAdminFromJwt } from "../../utils/authRoles";
-import { authService } from "../../services/authService";
+
 import type {
   DoctorAchievementDto,
   DoctorEducationDto,

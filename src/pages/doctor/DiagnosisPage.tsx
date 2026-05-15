@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 /** Set to `false` to call the real upload + analyze API chain. */
-const USE_MOCK = true;
+const USE_MOCK = false;
 
 const DIAGNOSIS_CASE_STORAGE_KEY = "colonai-diagnosis-last-case";
 const DIAGNOSIS_SAVED_RECORDS_KEY = "colonai-diagnosis-saved-records";
@@ -29,12 +29,16 @@ export interface AiAnalysisResponseDto {
 }
 
 interface ImageUploadResponseDto {
-  id: number;
-  filePath: string;
-  fileName: string;
-  fileSizeBytes: number;
-  uploadedAt: string;
-  status: string;
+  success: boolean;
+  message: string;
+  data: {
+    id: number;
+    filePath: string;
+    fileName: string;
+    fileSizeBytes: number;
+    uploadedAt: string;
+    status: string;
+  };
 }
 
 type Stage = "CASE_INFO" | "IMAGE_UPLOAD" | "ANALYZING" | "RESULTS";
@@ -67,7 +71,7 @@ function escapeHtml(s: string): string {
 }
 
 function getToken(): string {
-  return localStorage.getItem("authToken") || "";
+  return localStorage.getItem("token") || "";
 }
 
 function toDateInputValue(d: Date): string {
@@ -258,14 +262,14 @@ const DiagnosisPage: React.FC = () => {
 
       const token = getToken();
       const fd = new FormData();
-      fd.append("image", imageFile);
+      fd.append("Image", imageFile);
       fd.append("patientId", "0");
       const notesParts = [`Patient: ${patientName.trim()}`, doctorNotes.trim()].filter(Boolean);
       if (notesParts.length) {
         fd.append("notes", notesParts.join("\n\n"));
       }
 
-      const uploadRes = await fetch("/api/AI/upload", {
+      const uploadRes = await fetch("https://clinical.runasp.net/api/AI/upload", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: fd,
@@ -279,10 +283,12 @@ const DiagnosisPage: React.FC = () => {
       }
 
       const uploadJson = (await uploadRes.json()) as ImageUploadResponseDto;
-      const imageId = uploadJson.id;
+      const imageId = uploadJson?.data?.id;
       setUploadedImageId(imageId);
+      console.log(uploadJson);
+      console.log("UPLOAD RESPONSE:", uploadJson);
 
-      const analyzeRes = await fetch(`/api/AI/analyze/${imageId}`, {
+      const analyzeRes = await fetch(`https://clinical.runasp.net/api/AI/analyze/${imageId}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
