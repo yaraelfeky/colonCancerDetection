@@ -1,7 +1,22 @@
 import Container from "../Layout/Container";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 const CTASection = () => {
+
+  const navigate = useNavigate();
+
+const handleStartDiagnosis = () => {
+  sessionStorage.removeItem("colonai-diagnosis-last-case");
+
+  navigate("/diagnosis");
+
+  requestAnimationFrame(() => {
+    window.scrollTo({
+      top: 0,
+      behavior: "instant",
+    });
+  });
+};
   return (
         <section id="diagnosis" className="pb-24 scroll-mt-40">
           <Container>
@@ -20,8 +35,9 @@ const CTASection = () => {
               <p className="relative z-10 text-blue-100 mb-8 max-w-md leading-relaxed">
                 Upload your colonoscopy image and receive AI-assisted results in under 3 seconds.
               </p>
-              <Link
-                to="/diagnosis"
+              <button
+                type="button"
+                onClick={handleStartDiagnosis}
                 className="relative z-10 inline-flex items-center gap-2 px-8 py-3.5 rounded-xl text-sm font-bold bg-white hover:bg-blue-50 transition-all duration-200 hover:shadow-xl active:scale-95 no-underline"
                 style={{ color: "#1E88E5" }}
               >
@@ -29,7 +45,7 @@ const CTASection = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
                 Start Diagnosis
-              </Link>
+              </button>
             </div>
           </Container>
         </section>

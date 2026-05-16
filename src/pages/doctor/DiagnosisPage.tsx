@@ -108,6 +108,9 @@ const diagnosisBadgeClasses: Record<"cancerous" | "normal", string> = {
 
 const DiagnosisPage: React.FC = () => {
   const todayStr = useMemo(() => toDateInputValue(new Date()), []);
+    useEffect(() => {
+  window.scrollTo(0, 0);
+}, []);
 
   const [stage, setStage] = useState<Stage>("CASE_INFO");
   const [patientName, setPatientName] = useState("");

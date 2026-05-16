@@ -27,6 +27,21 @@ const Navbar: React.FC = () => {
   const [doctorUiTick, setDoctorUiTick] = useState(0);
   const [notifTick, setNotifTick] = useState(0);
 
+  // const navigate = useNavigate();
+
+const handleStartDiagnosis = () => {
+  sessionStorage.removeItem("colonai-diagnosis-last-case");
+
+  navigate("/diagnosis");
+
+  requestAnimationFrame(() => {
+    window.scrollTo({
+      top: 0,
+      behavior: "instant",
+    });
+  });
+};
+
   useEffect(() => {
     const onProfile = () => setDoctorUiTick((n) => n + 1);
     window.addEventListener("colonai-local-profile-changed", onProfile);
@@ -116,8 +131,9 @@ const Navbar: React.FC = () => {
               >
                 Diagnosis
               </Link>
-              <Link
-                to="/diagnosis"
+              <button
+                type="button"
+                onClick={handleStartDiagnosis}
                 className="hidden md:inline-flex no-underline items-center gap-2 px-3 py-2 rounded-2xl text-sm font-bold text-white transition-all duration-200 hover:opacity-90 active:scale-95 flex-shrink-0"
                 style={{
                   background: "#1E88E5",
@@ -125,7 +141,7 @@ const Navbar: React.FC = () => {
                 }}
               >
                 Start Diagnosis
-              </Link>
+              </button>
 
               {true &&  (
                 <div className="flex items-center gap-0.5 sm:gap-2 md:gap-3 shrink-0">
