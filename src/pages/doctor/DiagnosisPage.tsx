@@ -50,7 +50,7 @@ interface StoredDiagnosisCase {
 
 function readStoredDiagnosisCase(): StoredDiagnosisCase | null {
   try {
-    const raw = localStorage.getItem(DIAGNOSIS_CASE_STORAGE_KEY);
+    const raw = sessionStorage.getItem(DIAGNOSIS_CASE_STORAGE_KEY);
     if (!raw) return null;
     const j = JSON.parse(raw) as unknown;
     if (!j || typeof j !== "object") return null;
@@ -188,11 +188,12 @@ const DiagnosisPage: React.FC = () => {
 
   const resetAll = useCallback(() => {
     try {
-      localStorage.removeItem(DIAGNOSIS_CASE_STORAGE_KEY);
+      sessionStorage.removeItem(DIAGNOSIS_CASE_STORAGE_KEY);
     } catch {
       /* ignore */
     }
     setStage("CASE_INFO");
+    scrollToTop();
     setPatientName("");
     setCaseDate(todayStr);
     setImageFile(null);
@@ -212,11 +213,18 @@ const DiagnosisPage: React.FC = () => {
     setToastVariant("error");
   }, [todayStr]);
 
+  const scrollToTop = () => {
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    };
+
   const handleCaseNext = () => {
     const trimmed = patientName.trim();
     if (!trimmed) return;
     try {
-      localStorage.setItem(
+      sessionStorage.setItem(
         DIAGNOSIS_CASE_STORAGE_KEY,
         JSON.stringify({ patientName: trimmed, caseDate })
       );
@@ -224,6 +232,7 @@ const DiagnosisPage: React.FC = () => {
       /* ignore */
     }
     setStage("IMAGE_UPLOAD");
+    scrollToTop();
   };
 
   const handleRunAnalysis = async () => {
@@ -231,6 +240,7 @@ const DiagnosisPage: React.FC = () => {
     setErrorMessage(null);
     setIsLoading(true);
     setStage("ANALYZING");
+    scrollToTop();
 
     try {
       if (USE_MOCK) {
@@ -257,6 +267,7 @@ const DiagnosisPage: React.FC = () => {
         setOverrideActive(false);
         setOverrideDiagnosis(null);
         setStage("RESULTS");
+        scrollToTop();
         return;
       }
 
@@ -307,19 +318,35 @@ const DiagnosisPage: React.FC = () => {
       }
 
       const analyzeJson = (await analyzeRes.json()) as {
-        success?: boolean;
-        message?: string;
-        data?: AiAnalysisResponseDto;
-      };
+          imageId: number;
+          originalFileName: string;
+          patientId: number;
+          label: string;
+          probability: number;
+          isCancerous: boolean;
+          analyzedAt: string;
+        };
+      console.log("ANALYZE RESPONSE:", analyzeJson);
+      // if (analyzeJson.success === false) {
+      //   throw new Error(analyzeJson.message || "Analysis failed.");
+      // }
+      // if (!analyzeJson.data) {
+      //   throw new Error("Invalid analysis response.");
+      // }
+      setAnalysisResult({
+        imageId: analyzeJson.imageId,
+        originalFileName: analyzeJson.originalFileName,
+        patientId: analyzeJson.patientId,
+        label:
+          analyzeJson.label === "cancerous"
+            ? "cancerous"
+            : "normal",
+        probability: analyzeJson.probability,
+        isCancerous: analyzeJson.isCancerous,
+        analyzedAt: analyzeJson.analyzedAt,
+      });
 
-      if (analyzeJson.success === false) {
-        throw new Error(analyzeJson.message || "Analysis failed.");
-      }
-      if (!analyzeJson.data) {
-        throw new Error("Invalid analysis response.");
-      }
-
-      setAnalysisResult(analyzeJson.data);
+      // setAnalysisResult(analyzeJson.data);
       setOverrideActive(false);
       setOverrideDiagnosis(null);
       setStage("RESULTS");
@@ -427,6 +454,7 @@ const DiagnosisPage: React.FC = () => {
     }
     showToast("Saved to patient record (this browser).", "success");
   };
+  
 
   const exportPdf = () => {
     if (!patientName.trim() || !analysisResult || !effectiveDiagnosis) return;
