@@ -1,4 +1,5 @@
 import { axiosInstance } from "../api/axiosInstance";
+import { TOKEN_KEY, readAuthToken } from "../utils/authToken";
 import type {
   AuthResponseDto,
   GoogleLoginRequestDto,
@@ -20,7 +21,7 @@ const AUTH_UPDATE_MAIL = "/api/Auth/updateMail";
 const AUTH_UPDATE_USERNAME = "/api/Auth/updateUsername";
 const AUTH_UPDATE_PASSWORD = "/api/Auth/updatePassword";
 
-const TOKEN_KEY = "token";
+export { TOKEN_KEY };
 const REFRESH_TOKEN_KEY = "refreshToken";
 const REMEMBER_KEY = "rememberMe";
 
@@ -53,22 +54,6 @@ function handleAuthResponse(data: AuthResponseDto): void {
   persistToken(token);
 }
 
-/** remember: true → localStorage; false → sessionStorage only */
-// function persistTokenForLogin(
-//   token: string,
-//   refreshToken: string | null,
-//   remember: boolean
-// ): void {
-//   clearToken();
-//   localStorage.setItem(REMEMBER_KEY, remember ? "1" : "0");
-//   if (remember) {
-//     localStorage.setItem(TOKEN_KEY, token);
-//     if (refreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-//   } else {
-//     sessionStorage.setItem(TOKEN_KEY, token);
-//     if (refreshToken) sessionStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-//   }
-// }
 function persistTokenForLogin(
   token: string,
   refreshToken: string | null
@@ -188,10 +173,7 @@ export const authService = {
   },
 
   getToken(): string | null {
-    return (
-      localStorage.getItem(TOKEN_KEY) ||
-      sessionStorage.getItem(TOKEN_KEY)
-    );
+    return readAuthToken();
   },
 
   getRefreshToken(): string | null {
@@ -202,6 +184,6 @@ export const authService = {
   },
 
   isAuthenticated(): boolean {
-    return !!(localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY));
+    return !!readAuthToken();
   },
 };

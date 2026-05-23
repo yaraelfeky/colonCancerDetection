@@ -11,6 +11,7 @@ import {
   RefreshCw,
   X,
 } from "lucide-react";
+import { readAuthToken } from "../../utils/authToken";
 
 /** Set to `false` to call the real upload + analyze API chain. */
 const USE_MOCK = false;
@@ -71,7 +72,7 @@ function escapeHtml(s: string): string {
 }
 
 function getToken(): string {
-  return localStorage.getItem("token") || "";
+  return readAuthToken() ?? "";
 }
 
 function toDateInputValue(d: Date): string {

@@ -165,8 +165,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(async () => {
     await authService.logout();
     clearStoredUserRole();
-    localStorage.removeItem("colonai_doctor_profile_v1");
-    localStorage.removeItem("colonai_doctor_avatar_dataurl");
+    localStorage.removeItem("token");
     window.dispatchEvent(new Event("colonai-local-profile-changed"));
     setState({
       user: null,

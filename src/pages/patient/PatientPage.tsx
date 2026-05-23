@@ -19,11 +19,16 @@ import {
   Search,
   Users,
 } from "lucide-react";
+import {
+  buildPostPayload,
+  doctorRequestService,
+} from "../../services/doctorRequestService";
+import { getAuthHeaders } from "../../utils/authToken";
 
-const USE_MOCK = true;
+const USE_MOCK = false
 
 const MOCK_PATIENT = {
-  id: 1,
+  id: 3,
   name: "Ahmed Mohamed",
   age: 54,
   gender: "Male",
@@ -131,7 +136,7 @@ const MOCK_MEDICAL_RECORD = {
 const MOCK_REQUESTS = [
   {
     id: 1,
-    patientId: 1,
+    patientId: 3,
     subject: "Upload recent scan",
     message: "Please upload your latest colonoscopy image.",
     requestType: 1,
@@ -141,7 +146,7 @@ const MOCK_REQUESTS = [
   },
   {
     id: 2,
-    patientId: 1,
+    patientId: 3,
     subject: "Medication confirmation",
     message: "Please confirm you are taking Aspirin daily.",
     requestType: 0,
@@ -162,7 +167,7 @@ type ListPatient = {
 
 const MOCK_PATIENTS: ListPatient[] = [
   {
-    id: 1,
+    id: 3,
     name: "Ahmed Mohamed",
     age: 54,
     gender: "Male",
@@ -178,7 +183,7 @@ const MOCK_PATIENTS: ListPatient[] = [
     pendingReviews: 0,
   },
   {
-    id: 3,
+    id: 5,
     name: "Omar Hassan",
     age: 61,
     gender: "Male",
@@ -194,10 +199,6 @@ const MOCK_PATIENTS: ListPatient[] = [
     pendingReviews: 2,
   },
 ];
-
-function getToken(): string {
-  return localStorage.getItem("authToken") || "";
-}
 
 function formatDate(iso: string): string {
   try {
@@ -233,8 +234,8 @@ function initials(name: string): string {
 }
 
 function importanceLabel(v: number): "Low" | "Medium" | "High" {
-  if (v >= 2) return "High";
-  if (v === 1) return "Medium";
+  if (v === 3) return "High";
+  if (v === 2) return "Medium";
   return "Low";
 }
 
@@ -300,6 +301,24 @@ async function parseError(res: Response): Promise<string> {
   return res.statusText || "Request failed";
 }
 
+function normalizeDoctorRequest(raw: unknown, fallbackPatientId: number): DoctorRequestItem {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const importance = r.importance ?? r.Importance;
+  const requestType = r.requestType ?? r.RequestType;
+ const imp = importance === 1 || importance === 2 || importance === 3 ? (importance as 1 | 2 | 3): 2;
+  const type = requestType === 1 || requestType === 2 ? (requestType as 1 | 2) : 1;
+  return {
+    id: Number(r.id ?? r.Id ?? Date.now()),
+    patientId: Number(r.patientId ?? r.PatientId ?? fallbackPatientId),
+    subject: String(r.subject ?? r.Subject ?? ""),
+    message: String(r.message ?? r.Message ?? ""),
+    requestType: type,
+    importance: imp,
+    createdAt: String(r.createdAt ?? r.CreatedAt ?? new Date().toISOString()),
+    hasResponse: Boolean(r.hasResponse ?? r.HasResponse ?? false),
+  };
+}
+
 export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId, onBack }) => {
   const navigate = useNavigate();
   const [tab, setTab] = useState<TabId>("overview");
@@ -340,8 +359,8 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
   const [requestPanelOpen, setRequestPanelOpen] = useState(false);
   const [reqSubject, setReqSubject] = useState("");
   const [reqMessage, setReqMessage] = useState("");
-  const [reqImportance, setReqImportance] = useState<0 | 1 | 2>(1);
-  const [reqType, setReqType] = useState<0 | 1>(0);
+ const [reqImportance, setReqImportance] = useState<1 | 2 | 3>(1);
+const [reqType, setReqType] = useState<1 | 2>(1);
   const [reqSending, setReqSending] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -388,14 +407,14 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
 
     setLoading(true);
     setLoadError(null);
-    const headers = { Authorization: `Bearer ${getToken()}` };
+    const headers = getAuthHeaders();
 
     try {
-      const [pRes, mrRes, medRes, drRes] = await Promise.all([
+      const [pRes, mrRes, medRes, drList] = await Promise.all([
         fetch(`/api/AI/patient/${patientId}`, { headers }),
         fetch(`/api/medical-records/${patientId}`, { headers }),
         fetch(`/api/medications/patient/${patientId}`, { headers }),
-        fetch(`/api/DoctorRequest`, { headers }),
+        doctorRequestService.list(),
       ]);
 
       if (!pRes.ok) throw new Error(await parseError(pRes));
@@ -426,14 +445,10 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
       }
       setMedical(mrJson);
 
-      if (!drRes.ok) throw new Error(await parseError(drRes));
-      const drJson = (await drRes.json()) as unknown;
-      const list = Array.isArray(drJson)
-        ? drJson
-        : (drJson as { data?: DoctorRequestItem[] })?.data ?? [];
-      const arr = Array.isArray(list) ? list : [];
       setRequests(
-        arr.filter((r: DoctorRequestItem & { patientId?: number }) => (r.patientId ?? patientId) === patientId)
+        drList
+          .map((item) => normalizeDoctorRequest(item, patientId))
+          .filter((r) => r.patientId === patientId)
       );
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Failed to load patient");
@@ -479,10 +494,7 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
     try {
       const res = await fetch(`/api/medical-records/${path}/${entryId}/review`, {
         method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${getToken()}`,
-          "Content-Type": "application/json",
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(await parseError(res));
@@ -524,61 +536,58 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
     });
     setRejectDraft(null);
   };
-
+  
   const sendDoctorRequest = async () => {
     if (!reqSubject.trim() || !reqMessage.trim()) {
       setToast("Subject and message are required.");
       return;
     }
-    if (USE_MOCK) {
-      const next: DoctorRequestItem = {
-        id: Date.now(),
-        patientId,
-        subject: reqSubject.trim(),
-        message: reqMessage.trim(),
-        requestType: reqType,
-        importance: reqImportance,
-        createdAt: new Date().toISOString(),
-        hasResponse: false,
-      };
-      setRequests((prev) => [next, ...prev]);
-      setReqSubject("");
-      setReqMessage("");
-      setReqImportance(1);
-      setReqType(0);
-      setRequestPanelOpen(false);
-      setToast("Request sent.");
-      return;
-    }
 
     setReqSending(true);
-    try {
-      const fd = new FormData();
-      fd.append("PatientId", String(patientId));
-      fd.append("Subject", reqSubject.trim());
-      fd.append("Message", reqMessage.trim());
-      fd.append("RequestType", String(reqType));
-      fd.append("Importance", String(reqImportance));
+    
+    const subject = reqSubject.trim();
+    const message = reqMessage.trim();
+    
+    const body = buildPostPayload(
+      patientId,
+      subject,
+      message,
+      reqType,
+      reqImportance
+    );
+  console.log(JSON.stringify(body, null, 2));
+  console.log("reqImportance:", reqImportance);
+  console.log("body:", body);
+  console.log(typeof reqType, reqType);
+  console.log(typeof reqImportance, reqImportance);
 
-      const res = await fetch("/api/DoctorRequest", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${getToken()}` },
-        body: fd,
-      });
-      if (!res.ok) throw new Error(await parseError(res));
-      setReqSubject("");
-      setReqMessage("");
-      setReqImportance(1);
-      setReqType(0);
-      setRequestPanelOpen(false);
-      setToast("Request sent.");
-      await loadData();
-    } catch (e) {
-      setToast(e instanceof Error ? e.message : "Send failed");
-    } finally {
-      setReqSending(false);
-    }
-  };
+  try {
+    const created = await doctorRequestService.create(body);
+    const item = normalizeDoctorRequest(created ?? body, patientId);
+
+    setRequests((prev) => [item, ...prev]);
+    setReqSubject("");
+    setReqMessage("");
+    setReqImportance(1);
+    setReqType(1);
+    setRequestPanelOpen(false);
+    setToast("Request sent.");
+  } catch (e: any) {
+      console.log("FULL ERROR:", e);
+      console.log("RESPONSE:", e?.response?.data);
+
+      setToast(
+        e?.response?.data?.message ||
+        JSON.stringify(e?.response?.data) ||
+        "Send failed"
+  );
+}finally {
+    setReqSending(false);
+    console.log("CURRENT IMPORTANCE:", reqImportance);
+  }
+};
+
+ 
 
   const renderPendingActions = (section: MedicalSection, id: number, isPending: boolean) => {
     if (!isPending) return null;
@@ -698,6 +707,7 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
       </div>
     );
   }
+  
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-100">
@@ -1058,7 +1068,7 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
                     <div>
                       <p className="mb-2 text-xs font-semibold text-slate-600">Importance</p>
                       <div className="flex flex-wrap gap-2">
-                        {([0, 1, 2] as const).map((v) => (
+                        {([1, 2,3] as const).map((v) => (
                           <button
                             key={v}
                             type="button"
@@ -1079,9 +1089,9 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
-                          onClick={() => setReqType(0)}
+                          onClick={() => setReqType(1)}
                           className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                            reqType === 0
+                            reqType === 1
                               ? "border-blue-600 bg-blue-600 text-white"
                               : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
                           }`}
@@ -1090,9 +1100,9 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
                         </button>
                         <button
                           type="button"
-                          onClick={() => setReqType(1)}
+                          onClick={() => setReqType(2)}
                           className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                            reqType === 1
+                            reqType === 2
                               ? "border-blue-600 bg-blue-600 text-white"
                               : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
                           }`}
@@ -1191,7 +1201,7 @@ export const PatientsListPage: React.FC = () => {
     setListError(null);
     try {
       const res = await fetch("/api/Doctor/my-patients", {
-        headers: { Authorization: `Bearer ${getToken()}` },
+        headers: getAuthHeaders(),
       });
       if (!res.ok) throw new Error(await parseError(res));
       const j: unknown = await res.json();
@@ -1246,11 +1256,7 @@ export const PatientsListPage: React.FC = () => {
                 className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-800 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
               />
             </div>
-            {listError && (
-              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-                {listError}
-              </div>
-            )}
+
             {listLoading && !USE_MOCK ? (
               <div className="mt-12 flex justify-center">
                 <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />

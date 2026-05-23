@@ -215,7 +215,7 @@ export default function DoctorProfileDashboard() {
     const degrees = apiProfile?.degrees?.trim() || "";
     const clinicName = apiProfile?.clinicName?.trim() || "";
     const consultationFee = apiProfile?.consultationFee?.trim() || "";
-    const shortId = apiProfile?.id ? String(apiProfile.id).slice(0, 8).toUpperCase() : formatShortId(email || name);
+    const shortId = apiProfile?.userId ? String(apiProfile.userId).slice(0, 8).toUpperCase() : formatShortId(email || name);
 
     return {
       name,

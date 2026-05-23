@@ -61,7 +61,7 @@ export interface DoctorStatsDto {
 
 /** Main profile payload — GET/PATCH /api/Doctor/profile (adjust path in service) */
 export interface DoctorProfileDto {
-  id?: string;
+  userId?: string;
   fullName?: string;
   email?: string;
   phoneNumber?: string;
