@@ -23,7 +23,14 @@ import {
   buildPostPayload,
   doctorRequestService,
 } from "../../services/doctorRequestService";
-import { getAuthHeaders } from "../../utils/authToken";
+import { aiService } from "../../services/aiService";
+import { medicalRecordService, type MedicalRecordSection } from "../../services/medicalRecordService";
+import { medicationService } from "../../services/medicationService";
+import {
+  normalizePrescription,
+  prescriptionService,
+} from "../../services/prescriptionService";
+import { patientService } from "../../services/patientService";
 
 const USE_MOCK = false
 
@@ -280,7 +287,7 @@ export interface PatientDetailPageProps {
   onBack?: () => void;
 }
 
-type TabId = "overview" | "medical" | "ai" | "requests";
+type TabId = "overview" | "medical" | "ai" | "requests" | "prescriptions";
 
 type MedicalRecordState = typeof MOCK_MEDICAL_RECORD;
 
@@ -339,6 +346,7 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
   const [requests, setRequests] = useState<DoctorRequestItem[]>(
     USE_MOCK ? MOCK_REQUESTS.filter((r) => r.patientId === patientId) : []
   );
+  const [prescriptions, setPrescriptions] = useState<ReturnType<typeof normalizePrescription>[]>([]);
 
   const [openSections, setOpenSections] = useState<Record<MedicalSection, boolean>>({
     allergies: true,
@@ -407,43 +415,33 @@ const [reqType, setReqType] = useState<1 | 2>(1);
 
     setLoading(true);
     setLoadError(null);
-    const headers = getAuthHeaders();
 
     try {
-      const [pRes, mrRes, medRes, drList] = await Promise.all([
-        fetch(`/api/AI/patient/${patientId}`, { headers }),
-        fetch(`/api/medical-records/${patientId}`, { headers }),
-        fetch(`/api/medications/patient/${patientId}`, { headers }),
+      const [aiData, mrJson, meds, rxList, drList] = await Promise.all([
+        aiService.getPatientHistory(patientId),
+        medicalRecordService.getByPatient(patientId),
+        medicationService.getByPatient(patientId),
+        prescriptionService.getByPatient(patientId),
         doctorRequestService.list(),
       ]);
 
-      if (!pRes.ok) throw new Error(await parseError(pRes));
-      const pJson = (await pRes.json()) as PatientProfile & { analyses?: AiHistoryItem[]; aiHistory?: AiHistoryItem[] };
-      const { analyses, aiHistory: aiHist, ...restPatient } = pJson as PatientProfile & {
-        analyses?: AiHistoryItem[];
-        aiHistory?: AiHistoryItem[];
-      };
-      setPatient({ ...(restPatient as PatientProfile), id: (restPatient as PatientProfile).id ?? patientId });
+      setPatient({
+        id: patientId,
+        name: `Patient #${patientId}`,
+        age: 0,
+        gender: "—",
+        email: "—",
+        phone: "—",
+        joinedAt: new Date().toISOString(),
+      });
+      setAiHistory(aiData);
 
-      const fromPatient = analyses ?? aiHist ?? [];
-      setAiHistory(Array.isArray(fromPatient) ? fromPatient : []);
-
-      if (!mrRes.ok) throw new Error(await parseError(mrRes));
-      let mrJson = (await mrRes.json()) as MedicalRecordState;
-      if (medRes.ok) {
-        try {
-          const medJson = (await medRes.json()) as unknown;
-          const meds = Array.isArray(medJson)
-            ? medJson
-            : (medJson as { data?: unknown[] })?.data;
-          if (Array.isArray(meds) && meds.length) {
-            mrJson = { ...mrJson, medications: meds as MedicalRecordState["medications"] };
-          }
-        } catch {
-          /* keep medical record medications */
-        }
+      let medicalData = mrJson;
+      if (Array.isArray(meds) && meds.length) {
+        medicalData = { ...medicalData, medications: meds as MedicalRecordState["medications"] };
       }
-      setMedical(mrJson);
+      setMedical(medicalData);
+      setPrescriptions(rxList.map(normalizePrescription));
 
       setRequests(
         drList
@@ -492,12 +490,10 @@ const [reqType, setReqType] = useState<1 | 2>(1);
     const key = `${section}-${entryId}-${body.approve}`;
     setReviewBusy(key);
     try {
-      const res = await fetch(`/api/medical-records/${path}/${entryId}/review`, {
-        method: "PATCH",
-        headers: getAuthHeaders(),
-        body: JSON.stringify(body),
+      await medicalRecordService.reviewEntry(path as MedicalRecordSection, entryId, {
+        approve: body.approve,
+        note: body.note ?? "",
       });
-      if (!res.ok) throw new Error(await parseError(res));
       setMedical((prev) => {
         if (!prev) return prev;
         const arr = [...(prev[section] as { id: number; isPending?: boolean }[])];
@@ -751,6 +747,7 @@ const [reqType, setReqType] = useState<1 | 2>(1);
                   ["medical", "Medical Record"],
                   ["ai", "AI History"],
                   ["requests", "Requests"],
+                  ["prescriptions", "Prescriptions"],
                 ] as const
               ).map(([id, label]) => (
                 <button
@@ -1169,6 +1166,34 @@ const [reqType, setReqType] = useState<1 | 2>(1);
               </div>
             </div>
           )}
+
+          {tab === "prescriptions" && (
+            <div className="mt-6 space-y-4">
+              <h2 className="text-lg font-bold text-slate-900">Prescriptions</h2>
+              {prescriptions.length === 0 ? (
+                <p className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
+                  No prescriptions on record for this patient.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {prescriptions.map((rx) => (
+                    <div
+                      key={rx.id}
+                      className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                    >
+                      <h3 className="font-bold text-slate-900">{rx.name}</h3>
+                      {rx.subject && <p className="mt-1 text-sm text-slate-600">{rx.subject}</p>}
+                      <div className="mt-3 grid gap-2 text-sm text-slate-700 sm:grid-cols-3">
+                        <span><strong>Dosage:</strong> {rx.dosage}</span>
+                        <span><strong>Frequency:</strong> {rx.frequency}</span>
+                        <span><strong>Start:</strong> {rx.startDate ? formatDate(rx.startDate) : "—"}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </Container>
       </main>
 
@@ -1200,13 +1225,8 @@ export const PatientsListPage: React.FC = () => {
     setListLoading(true);
     setListError(null);
     try {
-      const res = await fetch("/api/Doctor/my-patients", {
-        headers: getAuthHeaders(),
-      });
-      if (!res.ok) throw new Error(await parseError(res));
-      const j: unknown = await res.json();
-      const arr = Array.isArray(j) ? j : (j as { data?: ListPatient[] }).data ?? [];
-      setPatients(Array.isArray(arr) ? (arr as ListPatient[]) : []);
+      const list = await patientService.getMyPatients();
+      setPatients(list);
     } catch (e) {
       setListError(e instanceof Error ? e.message : "Failed to load patients");
       setPatients([]);

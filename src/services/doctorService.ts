@@ -52,4 +52,28 @@ export const doctorService = {
 
     return mergeDoctorProfile(null, readLocalProfile());
   },
+
+  /** GET /api/Doctor/DoctorSearch */
+  async searchDoctors(params?: {
+    search?: string;
+    isLicenseVerified?: boolean;
+    hasSchedule?: boolean;
+    sortBy?: string;
+    descending?: boolean;
+    page?: number;
+    pageSize?: number;
+  }): Promise<unknown[]> {
+    try {
+      const { data } = await axiosInstance.get<{ data?: unknown[]; value?: unknown[] } | unknown[]>(
+        "/api/Doctor/DoctorSearch",
+        { params }
+      );
+      // Handle both wrapped and unwrapped responses
+      if (Array.isArray(data)) return data;
+      const wrapped = data as { data?: unknown[]; value?: unknown[] };
+      return wrapped.data ?? wrapped.value ?? [];
+    } catch {
+      return [];
+    }
+  },
 };

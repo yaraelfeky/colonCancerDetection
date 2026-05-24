@@ -4,6 +4,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import LoginPage from "./pages/auth/login";
 import RegisterPage from "./pages/auth/register";
 import VerificationPage from "./pages/auth/VerificationPage";
+import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
 import Home from "./pages/Home/Home";
 import { DoctorRoute } from "./components/DoctorRoute";
 import DoctorProfileDashboard from "./pages/doctor/DoctorProfileDashboard";
@@ -23,6 +24,7 @@ const App: React.FC = () => {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/verify" element={<VerificationPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
       <Route
         path="/dashboard"
@@ -55,7 +57,9 @@ const App: React.FC = () => {
         path="/ManagementPage"
         element={
           <ProtectedRoute>
-            <AdminDoctorsManagementPage/>
+            <AdminRoute>
+              <AdminDoctorsManagementPage/>
+            </AdminRoute>
           </ProtectedRoute>
         }
       />

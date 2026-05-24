@@ -7,8 +7,12 @@ import { authService } from "../../services/authService";
 import { getEffectiveUserRole } from "../../utils/userRole";
 import { readLocalAvatarDataUrl } from "../../utils/localDoctorProfile";
 import {
+  notificationService,
+} from "../../services/notificationService";
+import {
   getUnreadNotificationCount,
   NOTIFICATIONS_UNREAD_EVENT,
+  setUnreadNotificationCount,
 } from "../../utils/notificationsUnread";
 
 const navLinks = [
@@ -56,6 +60,10 @@ const handleStartDiagnosis = () => {
       window.removeEventListener(NOTIFICATIONS_UNREAD_EVENT, onNotif);
   }, []);
 
+  useEffect(() => {
+    void notificationService.getUnreadCount().then(setUnreadNotificationCount);
+  }, [notifTick]);
+
   const handleLogout = () => {
     logout();
     navigate("/login", { replace: true });
@@ -74,12 +82,11 @@ const handleStartDiagnosis = () => {
 
   const services = [
     { label: "Patients", href: "/patient" },
-    // { label: "AI Diagnosis", href: "/diagnosis" },
     { label: "Appointment", href: "/appointments" },
     { label: "Report History", href: "/reports" },
     { label: "Notifications", href: "/notifications" },
     { label: "Settings", href: "/settings" },
-    ...(isAdmin ? [{ label: "Management", href: "/ManagementPage" }] : [])
+    ...(isAdmin ? [{ label: "Management", href: "/admin/doctors" }] : [])
   ];
 
   const unreadNotifications = getUnreadNotificationCount();

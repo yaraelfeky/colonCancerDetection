@@ -67,7 +67,6 @@ const VerificationPage: React.FC = () => {
         // Google register flow
         await googleRegister({
           idToken: state.googleIdToken!,
-          isDoctor: true,
           professionalPracticeLicense: professionalPracticeLicense.trim(),
           issuingAuthority: issuingAuthority.trim(),
         });

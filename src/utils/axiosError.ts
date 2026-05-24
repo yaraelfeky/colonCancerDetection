@@ -32,7 +32,7 @@ export function getAxiosErrorMessage(err: unknown): string {
     }
     if (err.response?.status) {
       const status = err.response.status;
-      if (status === 400) return "Invalid request. Please check your input.";
+      // Note: 400 is intentionally NOT overridden here so backend messages pass through
       if (status === 401) return "Invalid username or password.";
       if (status === 403) return "Access denied.";
       if (status >= 500) return "Server error. Please try again later.";

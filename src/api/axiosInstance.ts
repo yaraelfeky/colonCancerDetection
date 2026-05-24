@@ -1,7 +1,8 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { readAuthToken } from "../utils/authToken";
 
-export const API_BASE_URL = "https://clinical.runasp.net";
+export const API_BASE_URL =
+  process.env.REACT_APP_API_BASE_URL?.trim() || "https://clinical.runasp.net";
 
 export const axiosInstance = axios.create({
   baseURL: API_BASE_URL,

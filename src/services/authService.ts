@@ -1,25 +1,33 @@
 import { axiosInstance } from "../api/axiosInstance";
 import { TOKEN_KEY, readAuthToken } from "../utils/authToken";
 import type {
+  ApiResultDto,
   AuthResponseDto,
+  ConfirmPasswordChangeDto,
+  ForgotPasswordRequestDto,
+  ForgotPasswordResetDto,
   GoogleLoginRequestDto,
+  GoogleLoginResultDto,
   GoogleRegisterRequestDto,
   LoginRequestDto,
   RegisterRequestDto,
+  RequestPasswordChangeOtpDto,
   UpdateMailDto,
-  UpdatePasswordDto,
   UpdateUsernameDto,
 } from "../types/auth";
 
 const AUTH_LOGIN = "/api/Auth/login";
 const AUTH_REGISTER = "/api/Auth/register";
 const AUTH_GOOGLE_LOGIN = "/api/Auth/google-login";
-const AUTH_GOOGLE_REGISTER = "/api/Auth/google-register";
+const AUTH_GOOGLE_REGISTER = "/api/Auth/google-register-doctor";
 const AUTH_REFRESH = "/api/Auth/refresh-token";
 const AUTH_LOGOUT = "/api/Auth/logout";
 const AUTH_UPDATE_MAIL = "/api/Auth/updateMail";
 const AUTH_UPDATE_USERNAME = "/api/Auth/updateUsername";
-const AUTH_UPDATE_PASSWORD = "/api/Auth/updatePassword";
+const PASSWORD_CHANGE_REQUEST = "/api/auth/password/change/request";
+const PASSWORD_CHANGE_CONFIRM = "/api/auth/password/change/confirm";
+const PASSWORD_FORGOT = "/api/auth/password/forgot";
+const PASSWORD_RESET = "/api/auth/password/reset";
 
 export { TOKEN_KEY };
 const REFRESH_TOKEN_KEY = "refreshToken";
@@ -99,11 +107,16 @@ export const authService = {
   async googleLogin(
     dto: GoogleLoginRequestDto,
     remember = true
-  ): Promise<AuthResponseDto> {
-    const { data } = await axiosInstance.post<AuthResponseDto>(
+  ): Promise<GoogleLoginResultDto> {
+    const { data } = await axiosInstance.post<GoogleLoginResultDto>(
       AUTH_GOOGLE_LOGIN,
       dto
     );
+
+    if (data.requiresRegistration) {
+      return data;
+    }
+
     if (!data.success) {
       clearToken();
       throw new Error(data.message || "Google authentication failed");
@@ -113,7 +126,7 @@ export const authService = {
       clearToken();
       throw new Error(data.message || "No token received");
     }
-    persistTokenForLogin(token, data.refreshToken ?? null);;
+    persistTokenForLogin(token, data.refreshToken ?? null);
     return data;
   },
 
@@ -168,8 +181,44 @@ export const authService = {
     await axiosInstance.put(AUTH_UPDATE_USERNAME, dto);
   },
 
-  async updatePassword(dto: UpdatePasswordDto): Promise<void> {
-    await axiosInstance.put(AUTH_UPDATE_PASSWORD, dto);
+  async requestPasswordChange(dto: RequestPasswordChangeOtpDto): Promise<void> {
+    const { data } = await axiosInstance.post<ApiResultDto>(
+      PASSWORD_CHANGE_REQUEST,
+      dto
+    );
+    if (!data.success) {
+      throw new Error(data.message || "Failed to send verification code");
+    }
+  },
+
+  async confirmPasswordChange(dto: ConfirmPasswordChangeDto): Promise<void> {
+    const { data } = await axiosInstance.post<ApiResultDto>(
+      PASSWORD_CHANGE_CONFIRM,
+      dto
+    );
+    if (!data.success) {
+      throw new Error(data.message || "Failed to change password");
+    }
+  },
+
+  async forgotPassword(dto: ForgotPasswordRequestDto): Promise<void> {
+    const { data } = await axiosInstance.post<ApiResultDto>(
+      PASSWORD_FORGOT,
+      dto
+    );
+    if (data.success === false) {
+      throw new Error(data.message || "Failed to send reset code");
+    }
+  },
+
+  async resetPassword(dto: ForgotPasswordResetDto): Promise<void> {
+    const { data } = await axiosInstance.post<ApiResultDto>(
+      PASSWORD_RESET,
+      dto
+    );
+    if (data.success === false) {
+      throw new Error(data.message || "Failed to reset password");
+    }
   },
 
   getToken(): string | null {

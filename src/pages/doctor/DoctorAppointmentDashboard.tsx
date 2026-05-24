@@ -1,7 +1,12 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import Navbar from "../../components/Layout/Navbar";
 import Footer from "../../components/Layout/Footer";
 import Container from "../../components/Layout/Container";
+import {
+  appointmentService,
+  normalizeAppointment,
+} from "../../services/appointmentService";
+import { useAuth } from "../../Context/AuthContext";
 
 interface Patient {
   id: string;
@@ -100,6 +105,7 @@ const initialAppointments = (today: string): Appointment[] => [
 ];
 
 const DoctorAppointmentDashboardPage: React.FC = () => {
+  const { user } = useAuth();
   const today = useMemo(() => toDateInputValue(new Date()), []);
   const [selectedDate, setSelectedDate] = useState<string>(today);
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
@@ -124,6 +130,59 @@ const DoctorAppointmentDashboardPage: React.FC = () => {
   });
 
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof AppointmentFormState, string>>>({});
+  const [apiLoading, setApiLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  const loadAppointments = useCallback(async () => {
+    setApiLoading(true);
+    setApiError(null);
+    try {
+      const data = await appointmentService.getMyAppointments();
+      if (data.length) {
+        setAppointments(
+          data.map((a) => {
+            const n = normalizeAppointment(a);
+            return {
+              id: n.id,
+              patient: { id: n.id, name: n.patientName, phoneNumber: "" },
+              date: n.date,
+              time: n.time,
+              serviceType: n.serviceType,
+              notes: n.notes,
+              status: n.status,
+            };
+          })
+        );
+      } else {
+        // API returned empty array — keep initial/local data
+        setAppointments(initialAppointments(today));
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed to load appointments";
+      // 403 = not authorized (token expired or wrong role)
+      // 401 = unauthenticated — both mean session issues, not data issues
+      const isAuthError =
+        msg.includes("403") ||
+        msg.includes("401") ||
+        msg.toLowerCase().includes("forbidden") ||
+        msg.toLowerCase().includes("unauthorized") ||
+        msg.toLowerCase().includes("access denied");
+
+      if (isAuthError) {
+        setApiError(`Session expired or insufficient permissions (Logged in as: ${user?.role || "None"}). Please log in again.`);
+      } else {
+        setApiError(msg);
+      }
+      // Always keep local/initial data visible on error
+      setAppointments(initialAppointments(today));
+    } finally {
+      setApiLoading(false);
+    }
+  }, [today]);
+
+  useEffect(() => {
+    void loadAppointments();
+  }, [loadAppointments]);
 
   const selectedDayAppointments = useMemo(
     () =>
@@ -306,6 +365,15 @@ const DoctorAppointmentDashboardPage: React.FC = () => {
                 <p className="mt-1 text-sm text-slate-500">
                   Manage patient appointments, schedules, and visit statuses.
                 </p>
+                {apiLoading && (
+                  <p className="mt-1 text-xs text-slate-400">Loading from server…</p>
+                )}
+                {apiError && (
+                  <div className="mt-2 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                    <span className="text-amber-500">⚠</span>
+                    <p className="text-xs text-amber-700">{apiError}</p>
+                  </div>
+                )}
               </div>
               <button
                 type="button"

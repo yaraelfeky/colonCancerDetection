@@ -12,6 +12,8 @@ import {
   X,
 } from "lucide-react";
 import { readAuthToken } from "../../utils/authToken";
+import { apiUrl } from "../../utils/apiUrl";
+import { medicalRecordService } from "../../services/medicalRecordService";
 
 /** Set to `false` to call the real upload + analyze API chain. */
 const USE_MOCK = false;
@@ -284,7 +286,7 @@ const DiagnosisPage: React.FC = () => {
         fd.append("notes", notesParts.join("\n\n"));
       }
 
-      const uploadRes = await fetch("https://clinical.runasp.net/api/AI/upload", {
+      const uploadRes = await fetch(apiUrl("/api/AI/upload"), {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: fd,
@@ -303,7 +305,7 @@ const DiagnosisPage: React.FC = () => {
       console.log(uploadJson);
       console.log("UPLOAD RESPONSE:", uploadJson);
 
-      const analyzeRes = await fetch(`https://clinical.runasp.net/api/AI/analyze/${imageId}`, {
+      const analyzeRes = await fetch(apiUrl(`/api/AI/analyze/${imageId}`), {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -429,7 +431,7 @@ const DiagnosisPage: React.FC = () => {
     e.preventDefault();
   };
 
-  const savePayload = () => {
+  const savePayload = async () => {
     if (!patientName.trim() || !analysisResult) return;
     const finalDiagnosis = effectiveDiagnosis;
     if (!finalDiagnosis) return;
@@ -456,7 +458,29 @@ const DiagnosisPage: React.FC = () => {
       showToast("Could not save to browser storage.", "error");
       return;
     }
-    showToast("Saved to patient record (this browser).", "success");
+
+    const pid = analysisResult.patientId;
+    if (pid && pid > 0) {
+      try {
+        await medicalRecordService.saveAiResult(pid, {
+          imageId: analysisResult.imageId,
+          label: finalDiagnosis,
+          probability: analysisResult.probability,
+          isCancerous: finalDiagnosis === "cancerous",
+          originalFileName: analysisResult.originalFileName,
+          doctorNotes: doctorNotes.trim() || undefined,
+          analyzedAt: analysisResult.analyzedAt,
+        });
+        showToast("Saved to patient medical record.", "success");
+        return;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Backend save failed";
+        showToast(`Saved locally. Backend: ${msg}`, "error");
+        return;
+      }
+    }
+
+    showToast("Saved locally (link a patient ID to sync with the server).", "success");
   };
   
 

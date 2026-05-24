@@ -32,12 +32,17 @@ export interface AuthResponseDto {
 /** POST /api/Auth/google-login */
 export interface GoogleLoginRequestDto {
   idToken: string;
+  isDoctor: boolean;
 }
 
-/** POST /api/Auth/google-register */
+/** Response from POST /api/Auth/google-login */
+export interface GoogleLoginResultDto extends AuthResponseDto {
+  requiresRegistration?: boolean;
+}
+
+/** POST /api/Auth/google-register-doctor */
 export interface GoogleRegisterRequestDto {
   idToken: string;
-  isDoctor: boolean;
   professionalPracticeLicense: string;
   issuingAuthority: string;
 }
@@ -57,9 +62,33 @@ export interface UpdateUsernameDto {
   newUserName: string | null;
 }
 
-/** PUT /api/Auth/updatePassword */
-export interface UpdatePasswordDto {
-  password: string;
+/** POST /api/auth/password/change/request */
+export interface RequestPasswordChangeOtpDto {
+  currentPassword: string;
+}
+
+/** POST /api/auth/password/change/confirm */
+export interface ConfirmPasswordChangeDto {
+  otpCode: string;
+  newPassword: string;
+  confirmNewPassword: string;
+}
+
+/** Generic backend result wrapper */
+export interface ApiResultDto {
+  success: boolean;
+  message?: string | null;
+}
+
+/** POST /api/auth/password/forgot */
+export interface ForgotPasswordRequestDto {
+  email: string;
+}
+
+/** POST /api/auth/password/reset */
+export interface ForgotPasswordResetDto {
+  email: string;
+  otpCode: string;
   newPassword: string;
   confirmNewPassword: string;
 }

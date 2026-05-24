@@ -9,6 +9,7 @@ import { authService } from "../services/authService";
 import { doctorService } from "../services/doctorService";
 import type {
   GoogleLoginRequestDto,
+  GoogleLoginResultDto,
   GoogleRegisterRequestDto,
   LoginRequestDto,
   RegisterRequestDto,
@@ -38,11 +39,16 @@ interface AuthContextValue extends AuthState {
   login: (dto: LoginRequestDto, remember: boolean) => Promise<void>;
   logout: () => Promise<void>;
   register: (dto: RegisterRequestDto) => Promise<void>;
-  googleLogin: (dto: GoogleLoginRequestDto, remember: boolean) => Promise<void>;
+  googleLogin: (dto: GoogleLoginRequestDto, remember: boolean) => Promise<GoogleLoginResultDto>;
   googleRegister: (dto: GoogleRegisterRequestDto) => Promise<void>;
   updateMail: (newEmail: string) => Promise<void>;
   updateUsername: (newUsername: string) => Promise<void>;
-  updatePassword: (password: string, newPassword: string, confirmNewPassword: string) => Promise<void>;
+  requestPasswordChange: (currentPassword: string) => Promise<void>;
+  confirmPasswordChange: (
+    otpCode: string,
+    newPassword: string,
+    confirmNewPassword: string
+  ) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -70,12 +76,7 @@ function readStoredUser(): User | null {
       (payload.unique_name as string | undefined) ??
       "";
 
-    const role =
-      (payload[
-        "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
-      ] as string | undefined) ??
-      (payload.role as string | undefined) ??
-      "";
+    const role = parseRoleFromJwt(token) ?? "";
 
     if (!email) return null;
 
@@ -102,7 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const user = isAuthenticated ? readStoredUser() : null;
     let doctorProfile: DoctorProfileDto | null = null;
 
-    if (isAuthenticated && user?.role === "doctor") {
+    if (isAuthenticated && user?.role?.toLowerCase() === "doctor") {
       try {
         doctorProfile = await doctorService.getProfile();
         if (doctorProfile) {
@@ -156,8 +157,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const googleLogin = useCallback(
     async (dto: GoogleLoginRequestDto, remember: boolean) => {
-      await authService.googleLogin(dto, remember);
-      await refreshAuth();
+      const result = await authService.googleLogin(dto, remember);
+      if (!result.requiresRegistration) {
+        await refreshAuth();
+      }
+      return result;
     },
     [refreshAuth],
   );
@@ -191,9 +195,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [refreshAuth],
   );
 
-  const updatePassword = useCallback(
-    async (password: string, newPassword: string, confirmNewPassword: string) => {
-      await authService.updatePassword({ password, newPassword, confirmNewPassword });
+  const requestPasswordChange = useCallback(
+    async (currentPassword: string) => {
+      await authService.requestPasswordChange({ currentPassword });
+    },
+    [],
+  );
+
+  const confirmPasswordChange = useCallback(
+    async (otpCode: string, newPassword: string, confirmNewPassword: string) => {
+      await authService.confirmPasswordChange({
+        otpCode,
+        newPassword,
+        confirmNewPassword,
+      });
     },
     [],
   );
@@ -207,7 +222,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     googleRegister,
     updateMail,
     updateUsername,
-    updatePassword,
+    requestPasswordChange,
+    confirmPasswordChange,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

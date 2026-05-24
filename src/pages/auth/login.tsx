@@ -73,10 +73,18 @@ const LoginPage: React.FC = () => {
     setIsSubmitting(true);
     try {
       const idToken = await getGoogleIdToken();
-      await googleLogin({ idToken }, rememberMe);
+      const result = await googleLogin({ idToken, isDoctor: true }, rememberMe);
+
+      if (result.requiresRegistration) {
+        navigate("/verify", { state: { googleIdToken: idToken } });
+        return;
+      }
+
       const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? "/dashboard";
       navigate(from, { replace: true });
     } catch (err) {
+      // DEBUG: log full error to console to diagnose backend response
+      console.error("[Google Login Error]", err);
       const msg = getAxiosErrorMessage(err);
       const lower = msg.toLowerCase();
       if (
@@ -205,6 +213,9 @@ const LoginPage: React.FC = () => {
 
             <p className="auth-form-footer">
               Don&apos;t have an account? <Link to="/register">Register</Link>
+            </p>
+            <p className="auth-form-footer" style={{ marginTop: "8px" }}>
+              <Link to="/forgot-password" style={{ color: "#6b7280", fontSize: "13px" }}>Forgot password?</Link>
             </p>
           </form>
         </div>

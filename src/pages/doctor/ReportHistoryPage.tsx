@@ -1,7 +1,10 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import Navbar from "../../components/Layout/Navbar";
 import Footer from "../../components/Layout/Footer";
 import Container from "../../components/Layout/Container";
+import { loadAllAiReports } from "../../services/aiService";
+import { patientService } from "../../services/patientService";
+import { getAxiosErrorMessage } from "../../utils/axiosError";
 
 interface Patient {
   id: string;
@@ -96,6 +99,9 @@ const statusBadgeClasses: Record<ReportStatus, string> = {
 };
 
 const ReportHistoryPage: React.FC = () => {
+  const [reports, setReports] = useState<Report[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState<ReportType | "All Types">(
     "All Types"
@@ -106,9 +112,43 @@ const ReportHistoryPage: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<SortOrder>("Newest");
   const [activeReport, setActiveReport] = useState<Report | null>(null);
 
+  const loadReports = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const patients = await patientService.getMyPatients();
+      const aiItems = await loadAllAiReports(patients);
+      const mapped: Report[] = aiItems.map((item) => ({
+        id: `AI-${item.imageId}`,
+        patient: { id: String(item.patientId), name: item.patientName },
+        date: item.analyzedAt?.split("T")[0] ?? new Date().toISOString().split("T")[0],
+        type: "Diagnosis" as ReportType,
+        status: item.isCancerous ? "Completed" : "Completed",
+        summary: item.isCancerous
+          ? `Suspicious finding (${Math.round((item.probability ?? 0) * 100)}% confidence)`
+          : `Normal tissue (${Math.round((item.probability ?? 0) * 100)}% confidence)`,
+        diagnosis: item.label ?? (item.isCancerous ? "cancerous" : "normal"),
+        recommendations: item.isCancerous
+          ? "Review with patient and schedule follow-up as needed."
+          : "Continue routine surveillance.",
+        doctorNotes: item.originalFileName ?? "",
+      }));
+      setReports(mapped.length ? mapped : MOCK_REPORTS);
+    } catch (err) {
+      setLoadError(getAxiosErrorMessage(err));
+      setReports(MOCK_REPORTS);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadReports();
+  }, [loadReports]);
+
   const filteredReports = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
-    let results = [...MOCK_REPORTS];
+    let results = [...reports];
 
     if (normalizedSearch) {
       results = results.filter((report) =>
@@ -131,7 +171,7 @@ const ReportHistoryPage: React.FC = () => {
     });
 
     return results;
-  }, [searchTerm, selectedType, selectedStatus, sortOrder]);
+  }, [reports, searchTerm, selectedType, selectedStatus, sortOrder]);
 
   return (
     <div className="flex min-h-screen flex-col" style={{ background: "#002570" }}>
@@ -147,6 +187,12 @@ const ReportHistoryPage: React.FC = () => {
               <p className="mt-1 text-sm text-slate-500">
                 Review and manage your patients' diagnostic and follow-up reports.
               </p>
+              {loadError && (
+                <p className="mt-2 text-sm text-amber-700">Using sample data — {loadError}</p>
+              )}
+              {loading && (
+                <p className="mt-2 text-sm text-slate-500">Loading reports from server…</p>
+              )}
             </div>
 
             <div
