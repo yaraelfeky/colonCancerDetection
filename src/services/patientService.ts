@@ -1,7 +1,9 @@
 import { axiosInstance } from "../api/axiosInstance";
+import { USE_MOCK } from "../config/mockFlags";
+import { getMockPatients } from "../mocks/medicalRecordMockStore";
 import type { ApiResponse } from "../types/api";
+import { doctorRequestService } from "../services/doctorRequestService";
 import { parseServiceError, unwrapApiDataOrEmpty, unwrapApiDataOptional } from "../utils/apiResponse";
-import { doctorRequestService } from "./doctorRequestService";
 
 export interface ListPatient {
   id: number;
@@ -23,6 +25,13 @@ export interface PatientProfileDto {
   gender?: string;
   joinedAt?: string;
   [key: string]: unknown;
+}
+
+function normalizeDoctorRequest(r: any) {
+  return {
+    patientId: Number(r.patientId ?? r.PatientId),
+    patientName: String(r.patientName ?? r.PatientName ?? ""),
+  };
 }
 
 const BASE = "/api/Patient";
@@ -49,22 +58,31 @@ export const patientService = {
   },
 
   async getMyPatients(): Promise<ListPatient[]> {
+    if (USE_MOCK) {
+      const list = getMockPatients();
+      console.log("API Response:", { success: true, data: list });
+      return list;
+    }
     try {
       const { data } = await axiosInstance.get<ApiResponse<ListPatient[]>>(
         "/api/Doctor/my-patients"
       );
       const list = unwrapApiDataOrEmpty(data);
       if (list.length) return list.map(normalizeListPatient);
-    } catch {
-      /* fall through to DoctorRequest fallback */
+    } catch (error) {
+      console.error("API Error:", (error as { response?: { data?: unknown } })?.response?.data || (error as Error).message);
+      console.warn("my-patients endpoint not ready yet:", error);
+      return [];
     }
 
     try {
       const requests = await doctorRequestService.list();
       const map = new Map<number, ListPatient>();
       for (const r of requests) {
-        const pid = Number(r.patientId ?? r.PatientId);
-        if (!pid || map.has(pid)) continue;
+        const rawId = r.patientId ?? r.PatientId;
+        const pid = Number(rawId);
+
+        if (!rawId || Number.isNaN(pid)) continue;
         map.set(pid, {
           id: pid,
           name: String(r.patientName ?? r.PatientName ?? `Patient #${pid}`),
@@ -75,6 +93,23 @@ export const patientService = {
       throw new Error(await parseServiceError(error));
     }
   },
+
+  // async getMyPatients(): Promise<ListPatient[]> {
+    
+  //   try {
+  //     const { data } = await axiosInstance.get<ApiResponse<ListPatient[]>>(
+  //       "/api/Doctor/my-patients"
+  //     );
+  //     console.log("API Response:", data);
+  //     const list = unwrapApiDataOrEmpty(data);
+  //     if (list.length) return list.map(normalizeListPatient);
+  //     return [];
+  //   } catch (error) {
+  //     console.error("API Error:", (error as { response?: { data?: unknown } })?.response?.data || (error as Error).message);
+  //     console.warn("my-patients endpoint not ready yet:", error);
+  //     return [];
+  //   }
+  // },
 };
 
 function normalizeListPatient(p: ListPatient & Record<string, unknown>): ListPatient {

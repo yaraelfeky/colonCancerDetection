@@ -11,6 +11,10 @@ import {
   setUnreadNotificationCount,
 } from "../utils/notificationsUnread";
 import { Bell, CheckCheck, Loader2 } from "lucide-react";
+import { notificationHub } from "../services/notificationHub";
+import {
+  addUnreadNotifications,
+} from "../utils/notificationsUnread";
 
 function formatDate(value?: string): string {
   if (!value) return "—";
@@ -24,6 +28,7 @@ function formatDate(value?: string): string {
 function isUnread(n: NotificationDto): boolean {
   return !(n.isRead ?? n.read);
 }
+
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<NotificationDto[]>([]);
@@ -50,6 +55,18 @@ export default function NotificationsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+  void notificationHub.start((notification) => {
+    setNotifications((prev) => [notification, ...prev]);
+
+    addUnreadNotifications(1);
+  });
+
+  return () => {
+    void notificationHub.stop();
+  };
+}, []);
 
   const handleMarkRead = async (id: number) => {
     setMarkingId(id);

@@ -95,6 +95,7 @@ export const doctorRequestService = {
       return data?.data;
     } catch (error) {
       throw new Error(await parseAxiosError(error));
+      
     }
   },
 

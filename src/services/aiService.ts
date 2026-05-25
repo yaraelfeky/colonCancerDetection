@@ -1,4 +1,6 @@
 import { axiosInstance } from "../api/axiosInstance";
+import { USE_MOCK } from "../config/mockFlags";
+import { getMockAiHistoryForPatient } from "../mocks/patientHistoryMockData";
 import { apiUrl } from "../utils/apiUrl";
 import { readAuthToken } from "../utils/authToken";
 import type { ApiResponse } from "../types/api";
@@ -75,6 +77,11 @@ export const aiService = {
   },
 
   async getPatientHistory(patientId: number): Promise<AiHistoryItem[]> {
+    if (USE_MOCK) {
+      const list = getMockAiHistoryForPatient(patientId);
+      console.log("API Response:", { success: true, data: list });
+      return list;
+    }
     try {
       const { data } = await axiosInstance.get<ApiResponse<AiHistoryItem[]>>(
         `/api/AI/patient/${patientId}`

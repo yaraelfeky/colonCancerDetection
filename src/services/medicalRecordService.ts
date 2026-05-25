@@ -1,6 +1,9 @@
+import { AxiosError } from "axios";
 import { axiosInstance } from "../api/axiosInstance";
+import { USE_MOCK } from "../config/mockFlags";
+import { medicalRecordMockStore } from "../mocks/medicalRecordMockStore";
 import type { ApiResponse } from "../types/api";
-import { parseServiceError, unwrapApiData, unwrapApiDataOptional } from "../utils/apiResponse";
+import { parseServiceError, unwrapApiDataOptional } from "../utils/apiResponse";
 
 export interface MedicalRecordState {
   allergies?: unknown[];
@@ -32,67 +35,243 @@ export type MedicalRecordSection =
 
 const BASE = "/api/medical-records";
 
+const EMPTY_RECORD: MedicalRecordState = {
+  allergies: [],
+  visits: [],
+  surgeries: [],
+  tests: [],
+  medications: [],
+  familyConditions: [],
+};
+
+function logApiError(error: unknown): void {
+  if (error instanceof AxiosError) {
+    console.error("API Error:", error.response?.data || error.message);
+    return;
+  }
+  if (error instanceof Error) {
+    console.error("API Error:", error.message);
+    return;
+  }
+  console.error("API Error:", error);
+}
+
+async function apiRequest<T>(
+  payload: unknown | undefined,
+  request: () => Promise<{ data: ApiResponse<T> }>
+): Promise<ApiResponse<T>> {
+  if (payload !== undefined) {
+    console.log("Request Payload:", payload);
+  }
+  try {
+    const response = await request();
+    console.log("API Response:", response.data);
+    return response.data;
+  } catch (error) {
+    logApiError(error);
+    throw new Error(await parseServiceError(error));
+  }
+}
+
 export const medicalRecordService = {
   async getByPatient(patientId: number): Promise<MedicalRecordState> {
+    if (USE_MOCK) {
+      return medicalRecordMockStore.getByPatient(patientId);
+    }
     try {
-      const { data } = await axiosInstance.get<ApiResponse<MedicalRecordState>>(
-        `${BASE}/${patientId}`
+      const data = await apiRequest<MedicalRecordState>(undefined, () =>
+        axiosInstance.get<ApiResponse<MedicalRecordState>>(
+          `${BASE}/patient/${patientId}`
+        )
       );
-      return unwrapApiDataOptional(data) ?? {
-        allergies: [],
-        visits: [],
-        surgeries: [],
-        tests: [],
-        medications: [],
-        familyConditions: [],
-      };
+      return unwrapApiDataOptional(data) ?? { ...EMPTY_RECORD };
     } catch (error) {
-      console.warn("medicalRecordService.getByPatient failed, returning fallback empty structure:", error);
-      return {
-        allergies: [],
-        visits: [],
-        surgeries: [],
-        tests: [],
-        medications: [],
-        familyConditions: [],
-      };
+      console.warn("medicalRecordService.getByPatient failed:", error);
+      return { ...EMPTY_RECORD };
     }
   },
 
   async getPending(patientId: number): Promise<MedicalRecordState> {
+    if (USE_MOCK) {
+      return medicalRecordMockStore.getPending(patientId);
+    }
     try {
-      const { data } = await axiosInstance.get<ApiResponse<MedicalRecordState>>(
-        `${BASE}/${patientId}/pending`
+      const data = await apiRequest<MedicalRecordState>(undefined, () =>
+        axiosInstance.get<ApiResponse<MedicalRecordState>>(
+          `${BASE}/patient/${patientId}/pending`
+        )
       );
-      return unwrapApiDataOptional(data) ?? {
-        allergies: [],
-        visits: [],
-        surgeries: [],
-        tests: [],
-        medications: [],
-        familyConditions: [],
-      };
+      return unwrapApiDataOptional(data) ?? { ...EMPTY_RECORD };
     } catch (error) {
-      console.warn("medicalRecordService.getPending failed, returning fallback empty structure:", error);
-      return {
-        allergies: [],
-        visits: [],
-        surgeries: [],
-        tests: [],
-        medications: [],
-        familyConditions: [],
-      };
+      console.warn("medicalRecordService.getPending failed:", error);
+      return { ...EMPTY_RECORD };
     }
   },
 
-  /**
-   * No-op: AI analysis results are automatically persisted by the backend
-   * when POST /api/AI/analyze/{imageId} is called.
-   * Kept here to avoid breaking call-sites in DiagnosisPage.
-   */
   async saveAiResult(_patientId: number, _payload: SaveAiResultDto): Promise<void> {
-    // The backend stores the result during the analyze step — nothing extra to do.
     return Promise.resolve();
+  },
+
+  async addAllergy(
+    patientId: number,
+    payload: { name: string; severity: string; reaction: string }
+  ): Promise<unknown> {
+    if (USE_MOCK) return medicalRecordMockStore.addAllergy(patientId, payload);
+    const data = await apiRequest(payload, () =>
+      axiosInstance.post<ApiResponse>(`${BASE}/${patientId}/allergies`, payload)
+    );
+    return data.data ?? data;
+  },
+
+  async addVisit(
+    patientId: number,
+    payload: {
+      date: string;
+      doctorName: string;
+      reasonForVisit: string;
+      diagnosis: string;
+      treatmentPlan: string;
+    }
+  ): Promise<unknown> {
+    if (USE_MOCK) return medicalRecordMockStore.addVisit(patientId, payload);
+    const data = await apiRequest(payload, () =>
+      axiosInstance.post<ApiResponse>(`${BASE}/${patientId}/visits`, payload)
+    );
+    return data.data ?? data;
+  },
+
+  async addSurgery(
+    patientId: number,
+    payload: { name: string; date: string; outcome: string }
+  ): Promise<unknown> {
+    if (USE_MOCK) return medicalRecordMockStore.addSurgery(patientId, payload);
+    const data = await apiRequest(payload, () =>
+      axiosInstance.post<ApiResponse>(`${BASE}/${patientId}/surgeries`, payload)
+    );
+    return data.data ?? data;
+  },
+
+  async addTest(
+    patientId: number,
+    payload: { name: string; date: string; result: string }
+  ): Promise<unknown> {
+    if (USE_MOCK) return medicalRecordMockStore.addTest(patientId, payload);
+    const data = await apiRequest(payload, () =>
+      axiosInstance.post<ApiResponse>(`${BASE}/${patientId}/tests`, payload)
+    );
+    return data.data ?? data;
+  },
+
+  async addMedication(
+    patientId: number,
+    payload: {
+      name: string;
+      dosage: string;
+      frequency: string;
+      startDate: string;
+      endDate: string | null;
+      reminderTimes: string[];
+      daysOfWeek: string[];
+      notes: string | null;
+    }
+  ): Promise<unknown> {
+    if (USE_MOCK) return medicalRecordMockStore.addMedication(patientId, payload);
+    const data = await apiRequest(payload, () =>
+      axiosInstance.post<ApiResponse>(`${BASE}/${patientId}/medications`, payload)
+    );
+    return data.data ?? data;
+  },
+
+  async addFamilyCondition(
+    patientId: number,
+    payload: { name: string; relative: string; diagnosisDate: string }
+  ): Promise<unknown> {
+    if (USE_MOCK) return medicalRecordMockStore.addFamilyCondition(patientId, payload);
+    const data = await apiRequest(payload, () =>
+      axiosInstance.post<ApiResponse>(`${BASE}/${patientId}/family-conditions`, payload)
+    );
+    return data.data ?? data;
+  },
+
+  async updateAllergy(
+    entryId: number,
+    payload: { name: string; severity: string; reaction: string }
+  ): Promise<unknown> {
+    if (USE_MOCK) return medicalRecordMockStore.updateAllergy(entryId, payload);
+    const data = await apiRequest(payload, () =>
+      axiosInstance.put<ApiResponse>(`${BASE}/allergies/${entryId}`, payload)
+    );
+    return data.data ?? data;
+  },
+
+  async updateVisit(
+    entryId: number,
+    payload: {
+      date: string;
+      doctorName: string;
+      reasonForVisit: string;
+      diagnosis: string;
+      treatmentPlan: string;
+    }
+  ): Promise<unknown> {
+    if (USE_MOCK) return medicalRecordMockStore.updateVisit(entryId, payload);
+    const data = await apiRequest(payload, () =>
+      axiosInstance.put<ApiResponse>(`${BASE}/visits/${entryId}`, payload)
+    );
+    return data.data ?? data;
+  },
+
+  async updateSurgery(
+    entryId: number,
+    payload: { name: string; date: string; outcome: string }
+  ): Promise<unknown> {
+    if (USE_MOCK) return medicalRecordMockStore.updateSurgery(entryId, payload);
+    const data = await apiRequest(payload, () =>
+      axiosInstance.put<ApiResponse>(`${BASE}/surgeries/${entryId}`, payload)
+    );
+    return data.data ?? data;
+  },
+
+  async updateTest(
+    entryId: number,
+    payload: { name: string; date: string; result: string }
+  ): Promise<unknown> {
+    if (USE_MOCK) return medicalRecordMockStore.updateTest(entryId, payload);
+    const data = await apiRequest(payload, () =>
+      axiosInstance.put<ApiResponse>(`${BASE}/tests/${entryId}`, payload)
+    );
+    return data.data ?? data;
+  },
+
+  async updateMedication(
+    entryId: number,
+    payload: {
+      name: string;
+      dosage: string;
+      frequency: string;
+      startDate: string;
+      endDate: string | null;
+      reminderTimes: string[];
+      daysOfWeek: string[];
+      notes: string | null;
+    }
+  ): Promise<unknown> {
+    if (USE_MOCK) return medicalRecordMockStore.updateMedication(entryId, payload);
+    const data = await apiRequest(payload, () =>
+      axiosInstance.put<ApiResponse>(`${BASE}/medications/${entryId}`, payload)
+    );
+    return data.data ?? data;
+  },
+
+  async updateFamilyCondition(
+    entryId: number,
+    payload: { name: string; relative: string; diagnosisDate: string }
+  ): Promise<unknown> {
+    if (USE_MOCK) return medicalRecordMockStore.updateFamilyCondition(entryId, payload);
+    const data = await apiRequest(payload, () =>
+      axiosInstance.put<ApiResponse>(`${BASE}/family-conditions/${entryId}`, payload)
+    );
+    return data.data ?? data;
   },
 
   async reviewEntry(
@@ -100,16 +279,75 @@ export const medicalRecordService = {
     entryId: number,
     body: { approve: boolean; note: string }
   ): Promise<void> {
-    try {
-      const { data } = await axiosInstance.patch<ApiResponse>(
-        `${BASE}/${section}/${entryId}/review`,
-        body
-      );
-      if (!data.success) {
-        throw new Error(data.message || "Review failed");
-      }
-    } catch (error) {
-      throw new Error(await parseServiceError(error));
+    if (USE_MOCK) {
+      medicalRecordMockStore.reviewEntry(section, entryId, body);
+      return;
     }
+    const data = await apiRequest(body, () =>
+      axiosInstance.patch<ApiResponse>(`${BASE}/${section}/${entryId}/review`, body)
+    );
+    if (!data.success) {
+      throw new Error(data.message || "Review failed");
+    }
+  },
+
+  async deleteAllergy(entryId: number): Promise<void> {
+    if (USE_MOCK) {
+      medicalRecordMockStore.deleteAllergy(entryId);
+      return;
+    }
+    await apiRequest(undefined, () =>
+      axiosInstance.delete<ApiResponse>(`${BASE}/allergies/${entryId}`)
+    );
+  },
+
+  async deleteVisit(entryId: number): Promise<void> {
+    if (USE_MOCK) {
+      medicalRecordMockStore.deleteVisit(entryId);
+      return;
+    }
+    await apiRequest(undefined, () =>
+      axiosInstance.delete<ApiResponse>(`${BASE}/visits/${entryId}`)
+    );
+  },
+
+  async deleteSurgery(entryId: number): Promise<void> {
+    if (USE_MOCK) {
+      medicalRecordMockStore.deleteSurgery(entryId);
+      return;
+    }
+    await apiRequest(undefined, () =>
+      axiosInstance.delete<ApiResponse>(`${BASE}/surgeries/${entryId}`)
+    );
+  },
+
+  async deleteTest(entryId: number): Promise<void> {
+    if (USE_MOCK) {
+      medicalRecordMockStore.deleteTest(entryId);
+      return;
+    }
+    await apiRequest(undefined, () =>
+      axiosInstance.delete<ApiResponse>(`${BASE}/tests/${entryId}`)
+    );
+  },
+
+  async deleteMedication(entryId: number): Promise<void> {
+    if (USE_MOCK) {
+      medicalRecordMockStore.deleteMedication(entryId);
+      return;
+    }
+    await apiRequest(undefined, () =>
+      axiosInstance.delete<ApiResponse>(`${BASE}/medications/${entryId}`)
+    );
+  },
+
+  async deleteFamilyCondition(entryId: number): Promise<void> {
+    if (USE_MOCK) {
+      medicalRecordMockStore.deleteFamilyCondition(entryId);
+      return;
+    }
+    await apiRequest(undefined, () =>
+      axiosInstance.delete<ApiResponse>(`${BASE}/family-conditions/${entryId}`)
+    );
   },
 };

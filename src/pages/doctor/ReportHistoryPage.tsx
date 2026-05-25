@@ -116,7 +116,8 @@ const ReportHistoryPage: React.FC = () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const patients = await patientService.getMyPatients();
+      // const patients = await patientService.getMyPatients();
+      const patients = (await patientService.getMyPatients()) || [];
       const aiItems = await loadAllAiReports(patients);
       const mapped: Report[] = aiItems.map((item) => ({
         id: `AI-${item.imageId}`,
@@ -145,6 +146,8 @@ const ReportHistoryPage: React.FC = () => {
   useEffect(() => {
     void loadReports();
   }, [loadReports]);
+
+  
 
   const filteredReports = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();

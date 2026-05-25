@@ -12,8 +12,8 @@ import {
 import {
   getUnreadNotificationCount,
   NOTIFICATIONS_UNREAD_EVENT,
-  setUnreadNotificationCount,
 } from "../../utils/notificationsUnread";
+
 
 const navLinks = [
   { label: "Home", href: "/dashboard" },
@@ -30,6 +30,7 @@ const Navbar: React.FC = () => {
   const [servicesOpen, setServicesOpen] = useState(false);
   const [doctorUiTick, setDoctorUiTick] = useState(0);
   const [notifTick, setNotifTick] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // const navigate = useNavigate();
 
@@ -61,8 +62,24 @@ const handleStartDiagnosis = () => {
   }, []);
 
   useEffect(() => {
-    void notificationService.getUnreadCount().then(setUnreadNotificationCount);
-  }, [notifTick]);
+  const syncUnread = () => {
+    setUnreadCount(getUnreadNotificationCount());
+  };
+
+  syncUnread(); // أول تحميل
+
+  window.addEventListener(
+    NOTIFICATIONS_UNREAD_EVENT,
+    syncUnread
+  );
+
+  return () => {
+    window.removeEventListener(
+      NOTIFICATIONS_UNREAD_EVENT,
+      syncUnread
+    );
+  };
+}, []);
 
   const handleLogout = () => {
     logout();
@@ -82,10 +99,10 @@ const handleStartDiagnosis = () => {
 
   const services = [
     { label: "Patients", href: "/patient" },
+    { label: "Medical Record", href: "/medical-record" },
     { label: "Appointment", href: "/appointments" },
     { label: "Report History", href: "/reports" },
     { label: "Notifications", href: "/notifications" },
-    { label: "Settings", href: "/settings" },
     ...(isAdmin ? [{ label: "Management", href: "/admin/doctors" }] : [])
   ];
 

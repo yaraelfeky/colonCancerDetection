@@ -1,4 +1,5 @@
 import { axiosInstance } from "../api/axiosInstance";
+import { USE_MOCK } from "../config/mockFlags";
 import type { ApiResponse } from "../types/api";
 import { parseServiceError, unwrapApiDataOrEmpty } from "../utils/apiResponse";
 
@@ -27,6 +28,9 @@ const BASE = "/api/medications";
 
 export const prescriptionService = {
   async getByPatient(patientUserId: number): Promise<PrescriptionDto[]> {
+    if (USE_MOCK) {
+      return [];
+    }
     try {
       const { data } = await axiosInstance.get<ApiResponse<PrescriptionDto[]>>(
         `${BASE}/patient/${patientUserId}`

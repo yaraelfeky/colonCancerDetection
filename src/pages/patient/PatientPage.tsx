@@ -18,6 +18,8 @@ import {
   Plus,
   Search,
   Users,
+  FileText,
+  History,
 } from "lucide-react";
 import {
   buildPostPayload,
@@ -31,8 +33,16 @@ import {
   prescriptionService,
 } from "../../services/prescriptionService";
 import { patientService } from "../../services/patientService";
-
-const USE_MOCK = false
+import { USE_MOCK } from "../../config/mockFlags";
+import { buildMockPatientList, DEMO_META } from "../../mocks/patientListMock";
+import { getMockPatients } from "../../mocks/medicalRecordMockStore";
+import { medicalRecordMockStore } from "../../mocks/medicalRecordMockStore";
+import { getMockAiHistoryForPatient } from "../../mocks/patientHistoryMockData";
+import {
+  countPendingInMedicalRecord,
+  isPendingMedicalEntry,
+  toMedicalEntryBase,
+} from "../../types/medicalRecord";
 
 const MOCK_PATIENT = {
   id: 3,
@@ -270,6 +280,11 @@ const SECTION_API: Record<MedicalSection, string> = {
   familyConditions: "family-conditions",
 };
 
+function entryShowsPending(entry: { isPending?: boolean; status?: number }): boolean {
+  const base = toMedicalEntryBase(entry);
+  return base ? isPendingMedicalEntry(base) : false;
+}
+
 function formatListScanDate(iso: string): string {
   try {
     return new Date(iso).toLocaleDateString(undefined, {
@@ -372,6 +387,20 @@ const [reqType, setReqType] = useState<1 | 2>(1);
   const [reqSending, setReqSending] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
+  const [addSaving, setAddSaving] = useState(false);
+  const [addAllergyOpen, setAddAllergyOpen] = useState(false);
+  const [addAllergyForm, setAddAllergyForm] = useState({ name: "", severity: "", reaction: "" });
+  const [addVisitOpen, setAddVisitOpen] = useState(false);
+  const [addVisitForm, setAddVisitForm] = useState({ date: "", doctorName: "", reasonForVisit: "", diagnosis: "", treatmentPlan: "" });
+  const [addSurgeryOpen, setAddSurgeryOpen] = useState(false);
+  const [addSurgeryForm, setAddSurgeryForm] = useState({ name: "", date: "", outcome: "" });
+  const [addTestOpen, setAddTestOpen] = useState(false);
+  const [addTestForm, setAddTestForm] = useState({ name: "", date: "", result: "" });
+  const [addMedOpen, setAddMedOpen] = useState(false);
+  const [addMedForm, setAddMedForm] = useState({ name: "", dosage: "", frequency: "", startDate: "", endDate: "", reminderTimes: "", daysOfWeek: "", notes: "" });
+  const [addFamilyOpen, setAddFamilyOpen] = useState(false);
+  const [addFamilyForm, setAddFamilyForm] = useState({ name: "", relative: "", diagnosisDate: "" });
+
   useEffect(() => {
     if (!toast) return;
     const t = window.setTimeout(() => setToast(null), 4000);
@@ -386,13 +415,7 @@ const [reqType, setReqType] = useState<1 | 2>(1);
   const latestAi = sortedAi[0];
 
   const pendingMedicalCount = useMemo(() => {
-    if (!medical) return 0;
-    let n = 0;
-    (Object.keys(medical) as MedicalSection[]).forEach((k) => {
-      const arr = medical[k] as { isPending?: boolean }[];
-      n += arr.filter((x) => x.isPending).length;
-    });
-    return n;
+    return countPendingInMedicalRecord(medical as Record<string, unknown>);
   }, [medical]);
 
   const totalAiScans = aiHistory.length;
@@ -404,9 +427,18 @@ const [reqType, setReqType] = useState<1 | 2>(1);
 
   const loadData = useCallback(async () => {
     if (USE_MOCK) {
-      setPatient({ ...MOCK_PATIENT, id: patientId });
-      setAiHistory([...MOCK_AI_HISTORY]);
-      setMedical(JSON.parse(JSON.stringify(MOCK_MEDICAL_RECORD)) as MedicalRecordState);
+      const mockMeta = getMockPatients().find((p) => p.id === patientId);
+      const demo = DEMO_META[patientId];
+      setPatient({
+        ...MOCK_PATIENT,
+        id: patientId,
+        name: mockMeta?.name ?? `Patient #${patientId}`,
+        age: demo?.age ?? MOCK_PATIENT.age,
+        gender: demo?.gender ?? MOCK_PATIENT.gender,
+      });
+      setAiHistory(getMockAiHistoryForPatient(patientId));
+      const mr = medicalRecordMockStore.getByPatient(patientId);
+      setMedical(JSON.parse(JSON.stringify(mr)) as MedicalRecordState);
       setRequests(MOCK_REQUESTS.filter((r) => r.patientId === patientId));
       setLoading(false);
       setLoadError(null);
@@ -436,9 +468,16 @@ const [reqType, setReqType] = useState<1 | 2>(1);
       });
       setAiHistory(aiData);
 
-      let medicalData = mrJson;
+      // let medicalData = mrJson;
+      let medicalData = mrJson ?? {};
+      // if (Array.isArray(meds) && meds.length) {
+      //   medicalData = { ...medicalData, medications: meds as MedicalRecordState["medications"] };
+      // }
       if (Array.isArray(meds) && meds.length) {
-        medicalData = { ...medicalData, medications: meds as MedicalRecordState["medications"] };
+        medicalData = {
+          ...medicalData,
+          medications: meds,
+        };
       }
       setMedical(medicalData);
       setPrescriptions(rxList.map(normalizePrescription));
@@ -479,7 +518,7 @@ const [reqType, setReqType] = useState<1 | 2>(1);
         const list = [...(prev[key] as { id: number; isPending?: boolean }[])];
         const idx = list.findIndex((x) => x.id === entryId);
         if (idx === -1) return prev;
-        list[idx] = { ...list[idx], isPending: false };
+        list[idx] = { ...list[idx], isPending: false, status: body.approve ? 1 : 2 };
         return { ...prev, [key]: list };
       });
       setToast(body.approve ? "Entry approved." : "Entry rejected.");
@@ -499,7 +538,11 @@ const [reqType, setReqType] = useState<1 | 2>(1);
         const arr = [...(prev[section] as { id: number; isPending?: boolean }[])];
         const i = arr.findIndex((x) => x.id === entryId);
         if (i === -1) return prev;
-        arr[i] = { ...arr[i], isPending: false };
+        arr[i] = {
+          ...arr[i],
+          isPending: false,
+          status: body.approve ? 1 : 2,
+        };
         return { ...prev, [section]: arr };
       });
       setToast(body.approve ? "Entry approved." : "Entry rejected.");
@@ -583,7 +626,113 @@ const [reqType, setReqType] = useState<1 | 2>(1);
   }
 };
 
- 
+  const refreshMedical = useCallback(async () => {
+    try {
+      const mrJson = await medicalRecordService.getByPatient(patientId);
+      const meds = await medicationService.getByPatient(patientId);
+      let medicalData = mrJson;
+      // if (Array.isArray(meds) && meds.length) {
+      //   medicalData = { ...medicalData, medications: meds as MedicalRecordState["medications"] };
+      // }
+      if (Array.isArray(meds) && meds.length) {
+          medicalData = {
+            ...medicalData,
+            medications: meds,
+          };
+        }
+      setMedical(medicalData);
+    } catch (e) {
+      console.error("[refreshMedical] Error:", e);
+    }
+  }, [patientId]);
+
+  const submitAddAllergy = async () => {
+    if (!addAllergyForm.name.trim()) { setToast("Name is required."); return; }
+    setAddSaving(true);
+    try {
+      await medicalRecordService.addAllergy(patientId, addAllergyForm);
+      await refreshMedical();
+      setAddAllergyForm({ name: "", severity: "", reaction: "" });
+      setAddAllergyOpen(false);
+      setToast("Allergy added.");
+    } catch (e: any) { console.error(e); setToast(e?.message || "Failed to add allergy."); }
+    finally { setAddSaving(false); }
+  };
+
+  const submitAddVisit = async () => {
+    if (!addVisitForm.date.trim()) { setToast("Date is required."); return; }
+    setAddSaving(true);
+    try {
+      await medicalRecordService.addVisit(patientId, addVisitForm);
+      await refreshMedical();
+      setAddVisitForm({ date: "", doctorName: "", reasonForVisit: "", diagnosis: "", treatmentPlan: "" });
+      setAddVisitOpen(false);
+      setToast("Visit added.");
+    } catch (e: any) { console.error(e); setToast(e?.message || "Failed to add visit."); }
+    finally { setAddSaving(false); }
+  };
+
+  const submitAddSurgery = async () => {
+    if (!addSurgeryForm.name.trim()) { setToast("Name is required."); return; }
+    setAddSaving(true);
+    try {
+      await medicalRecordService.addSurgery(patientId, addSurgeryForm);
+      await refreshMedical();
+      setAddSurgeryForm({ name: "", date: "", outcome: "" });
+      setAddSurgeryOpen(false);
+      setToast("Surgery added.");
+    } catch (e: any) { console.error(e); setToast(e?.message || "Failed to add surgery."); }
+    finally { setAddSaving(false); }
+  };
+
+  const submitAddTest = async () => {
+    if (!addTestForm.name.trim()) { setToast("Name is required."); return; }
+    setAddSaving(true);
+    try {
+      await medicalRecordService.addTest(patientId, addTestForm);
+      await refreshMedical();
+      setAddTestForm({ name: "", date: "", result: "" });
+      setAddTestOpen(false);
+      setToast("Test added.");
+    } catch (e: any) { console.error(e); setToast(e?.message || "Failed to add test."); }
+    finally { setAddSaving(false); }
+  };
+
+  const submitAddMedication = async () => {
+    if (!addMedForm.name.trim()) { setToast("Name is required."); return; }
+    setAddSaving(true);
+    try {
+      const payload = {
+        name: addMedForm.name,
+        dosage: addMedForm.dosage,
+        frequency: addMedForm.frequency,
+        startDate: addMedForm.startDate,
+        endDate: addMedForm.endDate || null,
+        reminderTimes: addMedForm.reminderTimes ? addMedForm.reminderTimes.split(",").map(s => s.trim()).filter(Boolean) : [],
+        daysOfWeek: addMedForm.daysOfWeek ? addMedForm.daysOfWeek.split(",").map(s => s.trim()).filter(Boolean) : [],
+        notes: addMedForm.notes || null,
+      };
+      await medicalRecordService.addMedication(patientId, payload);
+      await refreshMedical();
+      setAddMedForm({ name: "", dosage: "", frequency: "", startDate: "", endDate: "", reminderTimes: "", daysOfWeek: "", notes: "" });
+      setAddMedOpen(false);
+      setToast("Medication added.");
+    } catch (e: any) { console.error(e); setToast(e?.message || "Failed to add medication."); }
+    finally { setAddSaving(false); }
+  };
+
+  const submitAddFamily = async () => {
+    if (!addFamilyForm.name.trim()) { setToast("Name is required."); return; }
+    setAddSaving(true);
+    try {
+      await medicalRecordService.addFamilyCondition(patientId, addFamilyForm);
+      await refreshMedical();
+      setAddFamilyForm({ name: "", relative: "", diagnosisDate: "" });
+      setAddFamilyOpen(false);
+      setToast("Family condition added.");
+    } catch (e: any) { console.error(e); setToast(e?.message || "Failed to add family condition."); }
+    finally { setAddSaving(false); }
+  };
 
   const renderPendingActions = (section: MedicalSection, id: number, isPending: boolean) => {
     if (!isPending) return null;
@@ -868,9 +1017,18 @@ const [reqType, setReqType] = useState<1 | 2>(1);
                         <p className="mt-1 text-sm text-slate-600">
                           Severity: {a.severity} · Reaction: {a.reaction}
                         </p>
-                        {renderPendingActions("allergies", a.id, a.isPending)}
+                        {renderPendingActions("allergies", a.id, entryShowsPending(a))}
                       </div>
                     ))}
+                    <button type="button" onClick={() => setAddAllergyOpen(o => !o)} className="inline-flex items-center gap-1 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"><Plus className="h-3.5 w-3.5" />Add Allergy</button>
+                    {addAllergyOpen && (
+                      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+                        <input type="text" placeholder="Name" value={addAllergyForm.name} onChange={e => setAddAllergyForm(f => ({...f, name: e.target.value}))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                        <input type="text" placeholder="Severity" value={addAllergyForm.severity} onChange={e => setAddAllergyForm(f => ({...f, severity: e.target.value}))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                        <input type="text" placeholder="Reaction" value={addAllergyForm.reaction} onChange={e => setAddAllergyForm(f => ({...f, reaction: e.target.value}))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                        <div className="flex gap-2"><button type="button" disabled={addSaving} onClick={() => void submitAddAllergy()} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">Save</button><button type="button" onClick={() => { setAddAllergyOpen(false); setAddAllergyForm({ name: '', severity: '', reaction: '' }); }} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button></div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -886,9 +1044,20 @@ const [reqType, setReqType] = useState<1 | 2>(1);
                         <p className="mt-2 text-sm text-slate-700">{v.reasonForVisit}</p>
                         <p className="mt-1 text-sm text-slate-600">Dx: {v.diagnosis}</p>
                         <p className="text-sm text-slate-600">Plan: {v.treatmentPlan}</p>
-                        {renderPendingActions("visits", v.id, v.isPending)}
+                        {renderPendingActions("visits", v.id, entryShowsPending(v))}
                       </div>
                     ))}
+                    <button type="button" onClick={() => setAddVisitOpen(o => !o)} className="inline-flex items-center gap-1 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"><Plus className="h-3.5 w-3.5" />Add Visit</button>
+                    {addVisitOpen && (
+                      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+                        <input type="datetime-local" placeholder="Date" value={addVisitForm.date} onChange={e => setAddVisitForm(f => ({...f, date: e.target.value}))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                        <input type="text" placeholder="Doctor Name" value={addVisitForm.doctorName} onChange={e => setAddVisitForm(f => ({...f, doctorName: e.target.value}))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                        <input type="text" placeholder="Reason for Visit" value={addVisitForm.reasonForVisit} onChange={e => setAddVisitForm(f => ({...f, reasonForVisit: e.target.value}))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                        <input type="text" placeholder="Diagnosis" value={addVisitForm.diagnosis} onChange={e => setAddVisitForm(f => ({...f, diagnosis: e.target.value}))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                        <input type="text" placeholder="Treatment Plan" value={addVisitForm.treatmentPlan} onChange={e => setAddVisitForm(f => ({...f, treatmentPlan: e.target.value}))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                        <div className="flex gap-2"><button type="button" disabled={addSaving} onClick={() => void submitAddVisit()} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">Save</button><button type="button" onClick={() => { setAddVisitOpen(false); setAddVisitForm({ date: '', doctorName: '', reasonForVisit: '', diagnosis: '', treatmentPlan: '' }); }} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button></div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -903,9 +1072,18 @@ const [reqType, setReqType] = useState<1 | 2>(1);
                         <p className="mt-1 text-sm text-slate-600">
                           {formatDate(s.date)} · {s.outcome}
                         </p>
-                        {renderPendingActions("surgeries", s.id, s.isPending)}
+                        {renderPendingActions("surgeries", s.id, entryShowsPending(s))}
                       </div>
                     ))}
+                    <button type="button" onClick={() => setAddSurgeryOpen(o => !o)} className="inline-flex items-center gap-1 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"><Plus className="h-3.5 w-3.5" />Add Surgery</button>
+                    {addSurgeryOpen && (
+                      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+                        <input type="text" placeholder="Name" value={addSurgeryForm.name} onChange={e => setAddSurgeryForm(f => ({...f, name: e.target.value}))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                        <input type="date" placeholder="Date" value={addSurgeryForm.date} onChange={e => setAddSurgeryForm(f => ({...f, date: e.target.value}))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                        <input type="text" placeholder="Outcome" value={addSurgeryForm.outcome} onChange={e => setAddSurgeryForm(f => ({...f, outcome: e.target.value}))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                        <div className="flex gap-2"><button type="button" disabled={addSaving} onClick={() => void submitAddSurgery()} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">Save</button><button type="button" onClick={() => { setAddSurgeryOpen(false); setAddSurgeryForm({ name: '', date: '', outcome: '' }); }} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button></div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -920,9 +1098,18 @@ const [reqType, setReqType] = useState<1 | 2>(1);
                         <p className="mt-1 text-sm text-slate-600">
                           {formatDateTime(t.date)} · {t.result}
                         </p>
-                        {renderPendingActions("tests", t.id, t.isPending)}
+                        {renderPendingActions("tests", t.id, entryShowsPending(t))}
                       </div>
                     ))}
+                    <button type="button" onClick={() => setAddTestOpen(o => !o)} className="inline-flex items-center gap-1 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"><Plus className="h-3.5 w-3.5" />Add Test</button>
+                    {addTestOpen && (
+                      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+                        <input type="text" placeholder="Test Name" value={addTestForm.name} onChange={e => setAddTestForm(f => ({...f, name: e.target.value}))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                        <input type="datetime-local" placeholder="Date" value={addTestForm.date} onChange={e => setAddTestForm(f => ({...f, date: e.target.value}))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                        <input type="text" placeholder="Result" value={addTestForm.result} onChange={e => setAddTestForm(f => ({...f, result: e.target.value}))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                        <div className="flex gap-2"><button type="button" disabled={addSaving} onClick={() => void submitAddTest()} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">Save</button><button type="button" onClick={() => { setAddTestOpen(false); setAddTestForm({ name: '', date: '', result: '' }); }} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button></div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -947,9 +1134,23 @@ const [reqType, setReqType] = useState<1 | 2>(1);
                           {m.endDate ? ` → ${formatDate(m.endDate)}` : ""}
                         </p>
                         {m.notes && <p className="mt-1 text-sm text-slate-500">{m.notes}</p>}
-                        {renderPendingActions("medications", m.id, m.isPending)}
+                        {renderPendingActions("medications", m.id, entryShowsPending(m))}
                       </div>
                     ))}
+                    <button type="button" onClick={() => setAddMedOpen(o => !o)} className="inline-flex items-center gap-1 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"><Plus className="h-3.5 w-3.5" />Add Medication</button>
+                    {addMedOpen && (
+                      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+                        <input type="text" placeholder="Name" value={addMedForm.name} onChange={e => setAddMedForm(f => ({...f, name: e.target.value}))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                        <input type="text" placeholder="Dosage" value={addMedForm.dosage} onChange={e => setAddMedForm(f => ({...f, dosage: e.target.value}))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                        <input type="text" placeholder="Frequency" value={addMedForm.frequency} onChange={e => setAddMedForm(f => ({...f, frequency: e.target.value}))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                        <input type="date" placeholder="Start Date" value={addMedForm.startDate} onChange={e => setAddMedForm(f => ({...f, startDate: e.target.value}))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                        <input type="date" placeholder="End Date (optional)" value={addMedForm.endDate} onChange={e => setAddMedForm(f => ({...f, endDate: e.target.value}))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                        <input type="text" placeholder="Reminder Times (comma-separated)" value={addMedForm.reminderTimes} onChange={e => setAddMedForm(f => ({...f, reminderTimes: e.target.value}))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                        <input type="text" placeholder="Days of Week (comma-separated)" value={addMedForm.daysOfWeek} onChange={e => setAddMedForm(f => ({...f, daysOfWeek: e.target.value}))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                        <input type="text" placeholder="Notes (optional)" value={addMedForm.notes} onChange={e => setAddMedForm(f => ({...f, notes: e.target.value}))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                        <div className="flex gap-2"><button type="button" disabled={addSaving} onClick={() => void submitAddMedication()} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">Save</button><button type="button" onClick={() => { setAddMedOpen(false); setAddMedForm({ name: '', dosage: '', frequency: '', startDate: '', endDate: '', reminderTimes: '', daysOfWeek: '', notes: '' }); }} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button></div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -969,9 +1170,18 @@ const [reqType, setReqType] = useState<1 | 2>(1);
                         <p className="mt-1 text-sm text-slate-600">
                           {f.relative} · {formatDate(f.diagnosisDate)}
                         </p>
-                        {renderPendingActions("familyConditions", f.id, f.isPending)}
+                        {renderPendingActions("familyConditions", f.id, entryShowsPending(f))}
                       </div>
                     ))}
+                    <button type="button" onClick={() => setAddFamilyOpen(o => !o)} className="inline-flex items-center gap-1 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"><Plus className="h-3.5 w-3.5" />Add Family Condition</button>
+                    {addFamilyOpen && (
+                      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+                        <input type="text" placeholder="Condition Name" value={addFamilyForm.name} onChange={e => setAddFamilyForm(f => ({...f, name: e.target.value}))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                        <input type="text" placeholder="Relative (e.g. Father)" value={addFamilyForm.relative} onChange={e => setAddFamilyForm(f => ({...f, relative: e.target.value}))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                        <input type="date" placeholder="Diagnosis Date" value={addFamilyForm.diagnosisDate} onChange={e => setAddFamilyForm(f => ({...f, diagnosisDate: e.target.value}))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                        <div className="flex gap-2"><button type="button" disabled={addSaving} onClick={() => void submitAddFamily()} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">Save</button><button type="button" onClick={() => { setAddFamilyOpen(false); setAddFamilyForm({ name: '', relative: '', diagnosisDate: '' }); }} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button></div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1209,6 +1419,7 @@ const [reqType, setReqType] = useState<1 | 2>(1);
 };
 
 export const PatientsListPage: React.FC = () => {
+  const navigate = useNavigate();
   const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [patients, setPatients] = useState<ListPatient[]>([]);
@@ -1217,7 +1428,7 @@ export const PatientsListPage: React.FC = () => {
 
   const loadList = useCallback(async () => {
     if (USE_MOCK) {
-      setPatients(MOCK_PATIENTS);
+      setPatients(buildMockPatientList());
       setListLoading(false);
       setListError(null);
       return;
@@ -1289,12 +1500,45 @@ export const PatientsListPage: React.FC = () => {
             ) : (
               <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2">
                 {filtered.map((p) => (
-                  <button
+                  <div
                     key={p.id}
-                    type="button"
-                    onClick={() => setSelectedPatientId(p.id)}
-                    className="flex w-full flex-col rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:border-blue-200 hover:shadow-md"
+                    className="relative rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md"
                   >
+                    <div className="absolute right-3 top-3 flex gap-1">
+                      <button
+                        type="button"
+                        title="Medical Record"
+                        aria-label="Medical Record"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(
+                            `/medical-record?patientId=${p.id}&patientName=${encodeURIComponent(p.name)}`
+                          );
+                        }}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                      >
+                        <FileText className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        title="Patient History"
+                        aria-label="Patient History"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(
+                            `/history?patientId=${p.id}&patientName=${encodeURIComponent(p.name)}`
+                          );
+                        }}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                      >
+                        <History className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPatientId(p.id)}
+                      className="flex w-full flex-col pr-20 text-left"
+                    >
                     <div className="flex items-start gap-3">
                       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-blue-200 bg-blue-50 text-sm font-bold text-blue-700">
                         {initials(p.name)}
@@ -1333,7 +1577,8 @@ export const PatientsListPage: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                  </button>
+                    </button>
+                  </div>
                 ))}
               </div>
             )}

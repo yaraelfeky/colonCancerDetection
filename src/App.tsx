@@ -16,6 +16,8 @@ import PatientsListPage from "./pages/patient/PatientPage";
 import AdminDoctorsManagementPage from "./pages/admin/AdminDoctorsManagementPage";
 import { AdminRoute } from "./components/AdminRoute";
 import SettingsPage from "./pages/SettingsPage";
+import MedicalRecordPage from "./pages/medical/MedicalRecordPage";
+import PatientHistoryPage from "./pages/history/PatientHistoryPage";
 
 const App: React.FC = () => {
   return (
@@ -77,6 +79,26 @@ const App: React.FC = () => {
           <ProtectedRoute>
             <DoctorRoute>
               <ReportHistoryPage />
+            </DoctorRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/medical-record"
+        element={
+          <ProtectedRoute>
+            <DoctorRoute>
+              <MedicalRecordPage />
+            </DoctorRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/history"
+        element={
+          <ProtectedRoute>
+            <DoctorRoute>
+              <PatientHistoryPage />
             </DoctorRoute>
           </ProtectedRoute>
         }
