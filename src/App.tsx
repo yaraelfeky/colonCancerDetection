@@ -5,6 +5,7 @@ import LoginPage from "./pages/auth/login";
 import RegisterPage from "./pages/auth/register";
 import VerificationPage from "./pages/auth/VerificationPage";
 import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
 import Home from "./pages/Home/Home";
 import { DoctorRoute } from "./components/DoctorRoute";
 import DoctorProfileDashboard from "./pages/doctor/DoctorProfileDashboard";
@@ -27,6 +28,7 @@ const App: React.FC = () => {
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/verify" element={<VerificationPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       <Route
         path="/dashboard"

@@ -79,16 +79,17 @@ export interface ConfirmPasswordChangeDto {
 export interface ApiResultDto {
   success: boolean;
   message?: string | null;
+  data?: unknown | null;
 }
 
 /** POST /api/auth/password/forgot */
 export interface ForgotPasswordRequestDto {
-  email: string;
+  emailOrPhone: string;
 }
 
 /** POST /api/auth/password/reset */
 export interface ForgotPasswordResetDto {
-  email: string;
+  emailOrPhone: string;
   otpCode: string;
   newPassword: string;
   confirmNewPassword: string;

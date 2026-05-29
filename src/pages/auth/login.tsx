@@ -1,4 +1,4 @@
-import React, { useState, FormEvent } from "react";
+import React, { useEffect , useState, FormEvent } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../Context/AuthContext";
 import { getAxiosErrorMessage } from "../../utils/axiosError";
@@ -26,6 +26,9 @@ const LoginPage: React.FC = () => {
     setIsSubmitting
   );
 
+  const [showSuccess, setShowSuccess] = useState(true);
+
+
   const successMessage =
     (location.state as { successMessage?: string } | null | undefined)
       ?.successMessage;
@@ -47,6 +50,7 @@ const LoginPage: React.FC = () => {
       setErrors(newErrors);
       return;
     }
+    
 
     setErrors({});
     setIsSubmitting(true);
@@ -79,7 +83,18 @@ const LoginPage: React.FC = () => {
     } finally {
       setIsSubmitting(false);
     }
+    
   };
+  
+  useEffect(() => {
+    if (!successMessage) return;
+  
+    const timer = setTimeout(() => {
+      setShowSuccess(false);
+    }, 3000);
+  
+    return () => clearTimeout(timer);
+  }, [successMessage]);
 
   return (
     <div className="auth-page-wrap">
@@ -97,8 +112,15 @@ const LoginPage: React.FC = () => {
           <form className="auth-form" onSubmit={handleSubmit}>
             <h2 className="auth-form-title">Sign In</h2>
 
-            {successMessage && (
+            {/* {successMessage && (
               <p className="auth-success-msg">{successMessage}</p>
+            )} */}
+            {showSuccess && successMessage && (
+              <div className="mb-4 rounded-xl border border-green-200 bg-green-50 p-3 animate-fade-in">
+                <p className="text-sm font-medium text-green-700">
+                  ✓ {successMessage}
+                </p>
+              </div>
             )}
 
             <div className="auth-input-wrap">

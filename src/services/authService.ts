@@ -252,24 +252,35 @@ export const authService = {
     }
   },
 
-  async forgotPassword(dto: ForgotPasswordRequestDto): Promise<void> {
+  async forgotPassword(dto: ForgotPasswordRequestDto): Promise<ApiResultDto> {
+    const payload: ForgotPasswordRequestDto = {
+      emailOrPhone: dto.emailOrPhone.trim(),
+    };
     const { data } = await axiosInstance.post<ApiResultDto>(
       PASSWORD_FORGOT,
-      dto
+      payload
     );
-    if (data.success === false) {
+    if (!data.success) {
       throw new Error(data.message || "Failed to send reset code");
     }
+    return data;
   },
 
-  async resetPassword(dto: ForgotPasswordResetDto): Promise<void> {
+  async resetPassword(dto: ForgotPasswordResetDto): Promise<ApiResultDto> {
+    const payload: ForgotPasswordResetDto = {
+      emailOrPhone: dto.emailOrPhone.trim(),
+      otpCode: dto.otpCode.trim(),
+      newPassword: dto.newPassword,
+      confirmNewPassword: dto.confirmNewPassword,
+    };
     const { data } = await axiosInstance.post<ApiResultDto>(
       PASSWORD_RESET,
-      dto
+      payload
     );
-    if (data.success === false) {
+    if (!data.success) {
       throw new Error(data.message || "Failed to reset password");
     }
+    return data;
   },
 
   getToken(): string | null {
