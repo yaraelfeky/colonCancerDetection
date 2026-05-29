@@ -1,8 +1,13 @@
-import React, { useState, FormEvent } from "react";
-import { useNavigate, useLocation, Navigate } from "react-router-dom";
+import React, { useState, FormEvent, useMemo } from "react";
+import { Link , useNavigate, useLocation, Navigate } from "react-router-dom";
 import { useAuth } from "../../Context/AuthContext";
 import { getAxiosErrorMessage } from "../../utils/axiosError";
 import type { RegisterRequestDto } from "../../types/auth";
+import {
+  clearGoogleRegistrationIdToken,
+  GOOGLE_REGISTRATION_PENDING_MESSAGE,
+  readGoogleRegistrationIdToken,
+} from "../../utils/googleLoginFlow";
 
 interface VerificationLocationState {
   registrationData?: {
@@ -22,8 +27,13 @@ const VerificationPage: React.FC = () => {
 
   const state = location.state as VerificationLocationState | null;
 
+  const googleIdToken = useMemo(() => {
+    return state?.googleIdToken ?? readGoogleRegistrationIdToken() ?? undefined;
+  }, [state?.googleIdToken]);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [professionalPracticeLicense, setProfessionalPracticeLicense] = useState("");
+  const [professionalPracticeLicense, setProfessionalPracticeLicense] =
+    useState("");
   const [issuingAuthority, setIssuingAuthority] = useState("");
   const [errors, setErrors] = useState<{
     professionalPracticeLicense?: string;
@@ -35,12 +45,11 @@ const VerificationPage: React.FC = () => {
     setErrors((prev) => ({ ...prev, [field]: undefined }));
   };
 
-  // If someone navigates here directly without state, redirect to register
-  if (!state?.registrationData && !state?.googleIdToken) {
+  if (!state?.registrationData && !googleIdToken) {
     return <Navigate to="/register" replace />;
   }
 
-  const isGoogleFlow = !!state.googleIdToken;
+  const isGoogleFlow = !!googleIdToken;
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -48,7 +57,8 @@ const VerificationPage: React.FC = () => {
     const newErrors: typeof errors = {};
 
     if (!professionalPracticeLicense.trim()) {
-      newErrors.professionalPracticeLicense = "Please enter your professional practice license.";
+      newErrors.professionalPracticeLicense =
+        "Please enter your professional practice license.";
     }
     if (!issuingAuthority.trim()) {
       newErrors.issuingAuthority = "Please enter the issuing authority.";
@@ -64,15 +74,14 @@ const VerificationPage: React.FC = () => {
 
     try {
       if (isGoogleFlow) {
-        // Google register flow
         await googleRegister({
-          idToken: state.googleIdToken!,
+          idToken: googleIdToken,
           professionalPracticeLicense: professionalPracticeLicense.trim(),
           issuingAuthority: issuingAuthority.trim(),
         });
+        clearGoogleRegistrationIdToken();
       } else {
-        // Normal register flow
-        const regData = state.registrationData!;
+        const regData = state!.registrationData!;
         const dto: RegisterRequestDto = {
           username: regData.username,
           email: regData.email,
@@ -89,8 +98,9 @@ const VerificationPage: React.FC = () => {
       navigate("/login", {
         replace: true,
         state: {
-          successMessage:
-            "Registration successful! Your account is pending admin approval. You will be able to login once approved.",
+          successMessage: isGoogleFlow
+            ? GOOGLE_REGISTRATION_PENDING_MESSAGE
+            : "Registration successful! Your account is pending admin approval. You will be able to login once approved.",
         },
       });
     } catch (err) {
@@ -110,7 +120,9 @@ const VerificationPage: React.FC = () => {
           <div className="auth-card-left-overlay" />
           <div className="auth-card-left-content">
             <h1 className="auth-card-left-title">Doctor Verification</h1>
-            <p className="auth-card-left-sub">One last step to complete your registration</p>
+            <p className="auth-card-left-sub">
+              One last step to complete your registration
+            </p>
           </div>
         </div>
 
@@ -118,12 +130,23 @@ const VerificationPage: React.FC = () => {
           <form className="auth-form" onSubmit={handleSubmit}>
             <h2 className="auth-form-title">Verify Your License</h2>
 
-            <p style={{ textAlign: "center", color: "#555", fontSize: "0.9rem", margin: 0 }}>
-              Please provide your professional credentials to complete registration.
+            <p
+              style={{
+                textAlign: "center",
+                color: "#555",
+                fontSize: "0.9rem",
+                margin: 0,
+              }}
+            >
+              Please provide your professional credentials to complete
+              registration.
             </p>
 
             <div className="auth-input-wrap">
-              <label className="auth-label" htmlFor="professionalPracticeLicense">
+              <label
+                className="auth-label"
+                htmlFor="professionalPracticeLicense"
+              >
                 Professional Practice License
               </label>
               <input
@@ -138,12 +161,16 @@ const VerificationPage: React.FC = () => {
                 }}
               />
               {errors.professionalPracticeLicense && (
-                <p className="auth-error-msg">{errors.professionalPracticeLicense}</p>
+                <p className="auth-error-msg">
+                  {errors.professionalPracticeLicense}
+                </p>
               )}
             </div>
 
             <div className="auth-input-wrap">
-              <label className="auth-label" htmlFor="issuingAuthority">Issuing Authority</label>
+              <label className="auth-label" htmlFor="issuingAuthority">
+                Issuing Authority
+              </label>
               <input
                 id="issuingAuthority"
                 type="text"
@@ -155,15 +182,25 @@ const VerificationPage: React.FC = () => {
                   clearError("issuingAuthority");
                 }}
               />
-              {errors.issuingAuthority && <p className="auth-error-msg">{errors.issuingAuthority}</p>}
+              {errors.issuingAuthority && (
+                <p className="auth-error-msg">{errors.issuingAuthority}</p>
+              )}
             </div>
 
             {errors.submit && <p className="auth-error-msg">{errors.submit}</p>}
 
-            <button type="submit" className="auth-btn-primary" disabled={isSubmitting}>
+            <button
+              type="submit"
+              className="auth-btn-primary"
+              disabled={isSubmitting}
+            >
               {isSubmitting ? "Submitting..." : "Complete Registration"}
               <span>→</span>
             </button>
+
+            <p className="auth-form-footer">
+              Already have an account? <Link to="/login">Sign in</Link>
+            </p>
           </form>
         </div>
       </div>

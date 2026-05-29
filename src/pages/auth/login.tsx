@@ -2,20 +2,33 @@ import React, { useState, FormEvent } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../Context/AuthContext";
 import { getAxiosErrorMessage } from "../../utils/axiosError";
-import { getGoogleIdToken } from "../../utils/googleAuth";
+import GoogleCredentialButton from "../../components/auth/GoogleCredentialButton";
+import { useGoogleCredentialAuth } from "../../hooks/useGoogleCredentialAuth";
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, googleLogin } = useAuth();
+  const { login } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [usernameOrEmail, setUsernameOrEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const [errors, setErrors] = useState<{ usernameOrEmail?: string; password?: string; submit?: string }>({});
+  const [errors, setErrors] = useState<{
+    usernameOrEmail?: string;
+    password?: string;
+    submit?: string;
+  }>({});
+
+  const { handleGoogleCredential } = useGoogleCredentialAuth(
+    rememberMe,
+    setErrors,
+    setIsSubmitting
+  );
+
   const successMessage =
-    (location.state as { successMessage?: string } | null | undefined)?.successMessage;
+    (location.state as { successMessage?: string } | null | undefined)
+      ?.successMessage;
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -43,11 +56,12 @@ const LoginPage: React.FC = () => {
         password,
       };
       await login(dto, rememberMe);
-      const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? "/dashboard";
+      const from =
+        (location.state as { from?: { pathname: string } })?.from?.pathname ??
+        "/dashboard";
       navigate(from, { replace: true });
     } catch (err) {
       const msg = getAxiosErrorMessage(err);
-      // Check for pending approval message from backend
       const lower = msg.toLowerCase();
       if (
         lower.includes("pending") ||
@@ -61,52 +75,6 @@ const LoginPage: React.FC = () => {
         setErrors({
           submit: msg,
         });
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-  
-
-  const handleGoogleLogin = async () => {
-    setErrors({});
-    setIsSubmitting(true);
-    try {
-      const idToken = await getGoogleIdToken();
-      const result = await googleLogin({ idToken, isDoctor: true }, rememberMe);
-
-      if (result.requiresRegistration) {
-        navigate("/verify", { state: { googleIdToken: idToken } });
-        return;
-      }
-
-      const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? "/dashboard";
-      navigate(from, { replace: true });
-    } catch (err) {
-      // DEBUG: log full error to console to diagnose backend response
-      console.error("[Google Login Error]", err);
-      const msg = getAxiosErrorMessage(err);
-      const lower = msg.toLowerCase();
-      if (
-        lower.includes("pending") ||
-        lower.includes("not approved") ||
-        lower.includes("approval")
-      ) {
-        setErrors({
-          submit: "Your account is pending admin approval.",
-        });
-      } else if (
-        lower.includes("not registered") ||
-        lower.includes("no account") ||
-        lower.includes("not found") ||
-        lower.includes("user not found")
-      ) {
-        // User doesn't exist, redirect to register
-        setErrors({
-          submit: "No account found. Please register first.",
-        });
-      } else {
-        setErrors({ submit: msg });
       }
     } finally {
       setIsSubmitting(false);
@@ -130,13 +98,13 @@ const LoginPage: React.FC = () => {
             <h2 className="auth-form-title">Sign In</h2>
 
             {successMessage && (
-              <p className="auth-success-msg">
-                {successMessage}
-              </p>
+              <p className="auth-success-msg">{successMessage}</p>
             )}
 
             <div className="auth-input-wrap">
-              <label className="auth-label" htmlFor="usernameOrEmail">Username or Email</label>
+              <label className="auth-label" htmlFor="usernameOrEmail">
+                Username or Email
+              </label>
               <input
                 id="usernameOrEmail"
                 type="text"
@@ -145,14 +113,20 @@ const LoginPage: React.FC = () => {
                 value={usernameOrEmail}
                 onChange={(e) => {
                   setUsernameOrEmail(e.target.value);
-                  if (errors.usernameOrEmail) setErrors((prev) => ({ ...prev, usernameOrEmail: undefined }));
+                  if (errors.usernameOrEmail) {
+                    setErrors((prev) => ({ ...prev, usernameOrEmail: undefined }));
+                  }
                 }}
               />
-              {errors.usernameOrEmail && <p className="auth-error-msg">{errors.usernameOrEmail}</p>}
+              {errors.usernameOrEmail && (
+                <p className="auth-error-msg">{errors.usernameOrEmail}</p>
+              )}
             </div>
 
             <div className="auth-input-wrap">
-              <label className="auth-label" htmlFor="password">Password</label>
+              <label className="auth-label" htmlFor="password">
+                Password
+              </label>
               <div className="auth-password-wrap">
                 <input
                   id="password"
@@ -162,7 +136,9 @@ const LoginPage: React.FC = () => {
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
-                    if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
+                    if (errors.password) {
+                      setErrors((prev) => ({ ...prev, password: undefined }));
+                    }
                   }}
                 />
                 <button
@@ -173,32 +149,53 @@ const LoginPage: React.FC = () => {
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
                   ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
                   )}
                 </button>
               </div>
-              {errors.password && <p className="auth-error-msg">{errors.password}</p>}
+              {errors.password && (
+                <p className="auth-error-msg">{errors.password}</p>
+              )}
             </div>
-
-            {/* <div className="auth-check-wrap">
-              <input
-                id="remember"
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-              />
-              <label htmlFor="remember">Remember me</label>
-            </div> */}
 
             {errors.submit && <p className="auth-error-msg">{errors.submit}</p>}
 
-            <button type="submit" className="auth-btn-primary" disabled={isSubmitting}>
+            <button
+              type="submit"
+              className="auth-btn-primary"
+              disabled={isSubmitting}
+            >
               {isSubmitting ? "Signing in..." : "Login"}
               <span>→</span>
             </button>
-
 
             <div className="auth-divider-wrap">
               <span className="auth-divider-line" />
@@ -206,16 +203,23 @@ const LoginPage: React.FC = () => {
               <span className="auth-divider-line" />
             </div>
 
-            <button type="button" className="auth-btn-social" onClick={handleGoogleLogin} disabled={isSubmitting}>
-              <span>G</span>
-              Sign in with Google
-            </button>
+            <GoogleCredentialButton
+              label="Sign in with Google"
+              disabled={isSubmitting}
+              onCredential={handleGoogleCredential}
+              onError={(message) => setErrors({ submit: message })}
+            />
 
             <p className="auth-form-footer">
               Don&apos;t have an account? <Link to="/register">Register</Link>
             </p>
             <p className="auth-form-footer" style={{ marginTop: "8px" }}>
-              <Link to="/forgot-password" style={{ color: "#6b7280", fontSize: "13px" }}>Forgot password?</Link>
+              <Link
+                to="/forgot-password"
+                style={{ color: "#6b7280", fontSize: "13px" }}
+              >
+                Forgot password?
+              </Link>
             </p>
           </form>
         </div>

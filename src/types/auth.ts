@@ -38,6 +38,7 @@ export interface GoogleLoginRequestDto {
 /** Response from POST /api/Auth/google-login */
 export interface GoogleLoginResultDto extends AuthResponseDto {
   requiresRegistration?: boolean;
+  isPendingApproval?: boolean;
 }
 
 /** POST /api/Auth/google-register-doctor */

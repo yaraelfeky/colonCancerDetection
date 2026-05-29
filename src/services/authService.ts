@@ -1,5 +1,9 @@
 import { axiosInstance } from "../api/axiosInstance";
 import { TOKEN_KEY, readAuthToken } from "../utils/authToken";
+import {
+  parseGoogleLoginResultDto,
+  requiresGoogleDoctorRegistration,
+} from "../utils/googleLoginFlow";
 import type {
   ApiResultDto,
   AuthResponseDto,
@@ -64,14 +68,23 @@ function handleAuthResponse(data: AuthResponseDto): void {
 
 function persistTokenForLogin(
   token: string,
-  refreshToken: string | null
+  refreshToken: string | null,
+  remember = true
 ): void {
   clearToken();
 
-  localStorage.setItem(TOKEN_KEY, token);
-
-  if (refreshToken) {
-    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+  if (remember) {
+    localStorage.setItem(TOKEN_KEY, token);
+    if (refreshToken) {
+      localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    }
+    localStorage.setItem(REMEMBER_KEY, "1");
+  } else {
+    sessionStorage.setItem(TOKEN_KEY, token);
+    if (refreshToken) {
+      sessionStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    }
+    localStorage.removeItem(REMEMBER_KEY);
   }
 }
 
@@ -91,7 +104,7 @@ export const authService = {
       clearToken();
       throw new Error(data.message || "No token received");
     }
-    persistTokenForLogin(token, data.refreshToken ?? null);
+    persistTokenForLogin(token, data.refreshToken ?? null, remember);
     return data;
   },
 
@@ -100,45 +113,82 @@ export const authService = {
     if (!data.success) {
       throw new Error(data.message || "Registration failed");
     }
-    // Do NOT persist token — user is pending approval
     return data;
   },
 
+  /**
+   * POST /api/Auth/google-login
+   * Body: { idToken, isDoctor } — idToken must be credentialResponse.credential (JWT).
+   */
   async googleLogin(
     dto: GoogleLoginRequestDto,
     remember = true
   ): Promise<GoogleLoginResultDto> {
-    const { data } = await axiosInstance.post<GoogleLoginResultDto>(
+    clearToken();
+
+    const payload: GoogleLoginRequestDto = {
+      idToken: dto.idToken,
+      isDoctor: dto.isDoctor,
+    };
+
+    // Backend may return HTTP 400 with requiresRegistration — not a hard failure.
+    const { data: raw } = await axiosInstance.post<unknown>(
       AUTH_GOOGLE_LOGIN,
-      dto
+      payload,
+      { validateStatus: (status) => status >= 200 && status < 500 }
     );
 
-    if (data.requiresRegistration) {
+    const data = parseGoogleLoginResultDto(raw);
+
+    if (data.isPendingApproval) {
+      clearToken();
+      return data;
+    }
+
+    if (requiresGoogleDoctorRegistration(data)) {
+      clearToken();
       return data;
     }
 
     if (!data.success) {
       clearToken();
-      throw new Error(data.message || "Google authentication failed");
+      throw new Error(
+        data.message || "Google authentication failed. Please try again."
+      );
     }
+
     const token = extractToken(data);
     if (!token) {
       clearToken();
       throw new Error(data.message || "No token received");
     }
-    persistTokenForLogin(token, data.refreshToken ?? null);
+
+    persistTokenForLogin(token, data.refreshToken ?? null, remember);
     return data;
   },
 
+  /**
+   * POST /api/Auth/google-register-doctor
+   * Body: { idToken, professionalPracticeLicense, issuingAuthority }
+   */
   async googleRegister(dto: GoogleRegisterRequestDto): Promise<AuthResponseDto> {
+    const payload: GoogleRegisterRequestDto = {
+      idToken: dto.idToken,
+      professionalPracticeLicense: dto.professionalPracticeLicense,
+      issuingAuthority: dto.issuingAuthority,
+    };
+
     const { data } = await axiosInstance.post<AuthResponseDto>(
       AUTH_GOOGLE_REGISTER,
-      dto
+      payload
     );
+
+    clearToken();
+
     if (!data.success) {
       throw new Error(data.message || "Google registration failed");
     }
-    // Do NOT persist token — user is pending approval
+
     return data;
   },
 
@@ -158,9 +208,10 @@ export const authService = {
       throw new Error("Token refresh failed");
     }
 
-    // Persist using same storage preference
-
-    persistTokenForLogin(newToken, data.refreshToken ?? refreshToken);
+    const remember =
+      localStorage.getItem(REMEMBER_KEY) === "1" ||
+      !!localStorage.getItem(REFRESH_TOKEN_KEY);
+    persistTokenForLogin(newToken, data.refreshToken ?? refreshToken, remember);
     return newToken;
   },
 

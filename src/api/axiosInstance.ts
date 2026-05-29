@@ -66,6 +66,7 @@ axiosInstance.interceptors.response.use(
       originalRequest.url?.includes("/api/Auth/login") ||
       originalRequest.url?.includes("/api/Auth/register") ||
       originalRequest.url?.includes("/api/Auth/google-login") ||
+      originalRequest.url?.includes("/api/Auth/google-register-doctor") ||
       originalRequest.url?.includes("/api/Auth/refresh-token")
     ) {
       return Promise.reject(error);

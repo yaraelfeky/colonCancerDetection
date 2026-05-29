@@ -320,6 +320,57 @@ body {
   color: #fff;
 }
 
+.google-credential-btn-wrap {
+  position: relative;
+  width: 100%;
+  min-height: 44px;
+}
+
+.google-credential-btn-fallback {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  border: 1px solid #e0e0e0;
+  background: #fff;
+  color: #000;
+  pointer-events: none;
+}
+
+.google-credential-btn-fallback span {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.google-credential-btn-native {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.02;
+  overflow: hidden;
+}
+
+.google-credential-btn-native > div {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.google-credential-btn-wrap--disabled .google-credential-btn-native {
+  pointer-events: none;
+}
+
+.google-credential-btn-wrap--disabled {
+  opacity: 0.6;
+}
+
 @media (max-width: 768px) {
   .auth-card {
     grid-template-columns: 1fr;

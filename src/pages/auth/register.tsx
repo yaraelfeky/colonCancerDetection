@@ -1,7 +1,8 @@
 import React, { useState, FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { getGoogleIdToken } from "../../utils/googleAuth";
 import { getAxiosErrorMessage } from "../../utils/axiosError";
+import GoogleCredentialButton from "../../components/auth/GoogleCredentialButton";
+import { useGoogleCredentialAuth } from "../../hooks/useGoogleCredentialAuth";
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
@@ -23,6 +24,12 @@ const RegisterPage: React.FC = () => {
     terms?: string;
     submit?: string;
   }>({});
+
+  const { handleGoogleCredential } = useGoogleCredentialAuth(
+    false,
+    setErrors,
+    setIsSubmitting
+  );
 
   const clearError = (field: keyof typeof errors) => {
     setErrors((prev) => ({ ...prev, [field]: undefined }));
@@ -55,7 +62,8 @@ const RegisterPage: React.FC = () => {
     if (!password) {
       newErrors.password = "Please enter your password.";
     } else if (password.length < 6) {
-      newErrors.password = "Password must be at least 8 characters and include at least one uppercase letter and one special character (!@#$%...).";
+      newErrors.password =
+        "Password must be at least 8 characters and include at least one uppercase letter and one special character (!@#$%...).";
     }
     if (!confirmPassword) {
       newErrors.confirmPassword = "Please confirm your password.";
@@ -73,7 +81,6 @@ const RegisterPage: React.FC = () => {
 
     setErrors({});
 
-    // Redirect to verification page with form data — do NOT register yet
     navigate("/verify", {
       state: {
         registrationData: {
@@ -85,24 +92,6 @@ const RegisterPage: React.FC = () => {
         },
       },
     });
-  };
-
-  const handleGoogleRegister = async () => {
-    setErrors({});
-    setIsSubmitting(true);
-    try {
-      const idToken = await getGoogleIdToken();
-      // Redirect to verification page with Google token — do NOT register yet
-      navigate("/verify", {
-        state: {
-          googleIdToken: idToken,
-        },
-      });
-    } catch (err) {
-      setErrors({ submit: getAxiosErrorMessage(err) });
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   return (
@@ -121,24 +110,30 @@ const RegisterPage: React.FC = () => {
           <form className="auth-form" onSubmit={handleSubmit}>
             <h2 className="auth-form-title">Sign Up</h2>
 
-              <div className="auth-input-wrap">
-                <label className="auth-label" htmlFor="username">User name</label>
-                <input
-                  id="username"
-                  type="text"
-                  className={`auth-input ${errors.username ? "error" : ""}`}
-                  placeholder="user name"
-                  value={username}
-                  onChange={(e) => {
-                    setUsername(e.target.value);
-                    clearError("username");
-                  }}
-                />
-                {errors.username && <p className="auth-error-msg">{errors.username}</p>}
-              </div>
+            <div className="auth-input-wrap">
+              <label className="auth-label" htmlFor="username">
+                User name
+              </label>
+              <input
+                id="username"
+                type="text"
+                className={`auth-input ${errors.username ? "error" : ""}`}
+                placeholder="user name"
+                value={username}
+                onChange={(e) => {
+                  setUsername(e.target.value);
+                  clearError("username");
+                }}
+              />
+              {errors.username && (
+                <p className="auth-error-msg">{errors.username}</p>
+              )}
+            </div>
 
             <div className="auth-input-wrap">
-              <label className="auth-label" htmlFor="email">Email address</label>
+              <label className="auth-label" htmlFor="email">
+                Email address
+              </label>
               <input
                 id="email"
                 type="email"
@@ -150,11 +145,15 @@ const RegisterPage: React.FC = () => {
                   clearError("email");
                 }}
               />
-              {errors.email && <p className="auth-error-msg">{errors.email}</p>}
+              {errors.email && (
+                <p className="auth-error-msg">{errors.email}</p>
+              )}
             </div>
 
             <div className="auth-input-wrap">
-              <label className="auth-label" htmlFor="phoneNumber">Phone Number</label>
+              <label className="auth-label" htmlFor="phoneNumber">
+                Phone Number
+              </label>
               <input
                 id="phoneNumber"
                 type="tel"
@@ -166,11 +165,15 @@ const RegisterPage: React.FC = () => {
                   clearError("phoneNumber");
                 }}
               />
-              {errors.phoneNumber && <p className="auth-error-msg">{errors.phoneNumber}</p>}
+              {errors.phoneNumber && (
+                <p className="auth-error-msg">{errors.phoneNumber}</p>
+              )}
             </div>
 
             <div className="auth-input-wrap">
-              <label className="auth-label" htmlFor="password">Password</label>
+              <label className="auth-label" htmlFor="password">
+                Password
+              </label>
               <div className="auth-password-wrap">
                 <input
                   id="password"
@@ -192,17 +195,47 @@ const RegisterPage: React.FC = () => {
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
                   ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
                   )}
                 </button>
               </div>
-              {errors.password && <p className="auth-error-msg">{errors.password}</p>}
+              {errors.password && (
+                <p className="auth-error-msg">{errors.password}</p>
+              )}
             </div>
 
             <div className="auth-input-wrap">
-              <label className="auth-label" htmlFor="confirmPassword">Confirm password</label>
+              <label className="auth-label" htmlFor="confirmPassword">
+                Confirm password
+              </label>
               <div className="auth-password-wrap">
                 <input
                   id="confirmPassword"
@@ -220,16 +253,46 @@ const RegisterPage: React.FC = () => {
                   className="auth-password-toggle"
                   onClick={() => setShowConfirmPassword((p) => !p)}
                   tabIndex={-1}
-                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                  aria-label={
+                    showConfirmPassword ? "Hide password" : "Show password"
+                  }
                 >
                   {showConfirmPassword ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
                   ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
                   )}
                 </button>
               </div>
-              {errors.confirmPassword && <p className="auth-error-msg">{errors.confirmPassword}</p>}
+              {errors.confirmPassword && (
+                <p className="auth-error-msg">{errors.confirmPassword}</p>
+              )}
             </div>
 
             <div className="auth-check-wrap">
@@ -247,7 +310,11 @@ const RegisterPage: React.FC = () => {
             {errors.terms && <p className="auth-error-msg">{errors.terms}</p>}
             {errors.submit && <p className="auth-error-msg">{errors.submit}</p>}
 
-            <button type="submit" className="auth-btn-primary" disabled={isSubmitting}>
+            <button
+              type="submit"
+              className="auth-btn-primary"
+              disabled={isSubmitting}
+            >
               {isSubmitting ? "Creating account..." : "Join us"}
               <span>→</span>
             </button>
@@ -258,10 +325,12 @@ const RegisterPage: React.FC = () => {
               <span className="auth-divider-line" />
             </div>
 
-            <button type="button" className="auth-btn-social" onClick={handleGoogleRegister} disabled={isSubmitting}>
-              <span>G</span>
-              Sign up with Google
-            </button>
+            <GoogleCredentialButton
+              label="Sign up with Google"
+              disabled={isSubmitting}
+              onCredential={handleGoogleCredential}
+              onError={(message) => setErrors({ submit: message })}
+            />
 
             <p className="auth-form-footer">
               Already have an account? <Link to="/login">Sign in</Link>

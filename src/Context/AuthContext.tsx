@@ -158,7 +158,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const googleLogin = useCallback(
     async (dto: GoogleLoginRequestDto, remember: boolean) => {
       const result = await authService.googleLogin(dto, remember);
-      if (!result.requiresRegistration) {
+      if (
+        result.success &&
+        !result.requiresRegistration &&
+        !result.isPendingApproval
+      ) {
         await refreshAuth();
       }
       return result;
