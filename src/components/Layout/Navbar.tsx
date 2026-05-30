@@ -7,6 +7,10 @@ import { authService } from "../../services/authService";
 import { getEffectiveUserRole } from "../../utils/userRole";
 import { readLocalAvatarDataUrl } from "../../utils/localDoctorProfile";
 import {
+  initialsFromUserName,
+  resolveDisplayUserName,
+} from "../../utils/authUser";
+import {
   notificationService,
 } from "../../services/notificationService";
 import {
@@ -92,10 +96,8 @@ const handleStartDiagnosis = () => {
   const doctorAvatarUrl =
     readLocalAvatarDataUrl() ?? doctorProfile?.profileImageUrl ?? undefined;
   const doctorDisplayName =
-    doctorProfile?.fullName?.trim() ||
-    user?.username?.trim() ||
-    user?.email?.split("@")[0] ||
-    "Doctor";
+    resolveDisplayUserName(user, doctorProfile?.userName) || "Doctor";
+  const doctorInitials = initialsFromUserName(doctorDisplayName);
 
   const services = [
     { label: "Patients", href: "/patient" },
@@ -232,7 +234,7 @@ const handleStartDiagnosis = () => {
                       />
                     ) : (
                       <span className="text-[10px] sm:text-xs font-extrabold text-[#1E88E5]">
-                        {doctorDisplayName.slice(0, 2).toUpperCase()}
+                        {doctorInitials}
                       </span>
                     )}
                   </Link>

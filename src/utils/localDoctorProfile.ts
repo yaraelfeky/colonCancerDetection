@@ -52,6 +52,7 @@ export function mergeDoctorProfile(
   const merged: DoctorProfileDto = {
     ...a,
     ...l,
+    userName: (l.userName ?? a.userName) || undefined,
     fullName: (l.fullName ?? a.fullName) || undefined,
     email: (l.email ?? a.email) || undefined,
     phoneNumber: (l.phoneNumber ?? a.phoneNumber) || undefined,

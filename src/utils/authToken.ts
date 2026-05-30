@@ -3,10 +3,7 @@
 export const TOKEN_KEY = "token";
 
 export function readAuthToken(): string | null {
-  return (
-    localStorage.getItem(TOKEN_KEY) ||
-    sessionStorage.getItem(TOKEN_KEY)
-  );
+  return localStorage.getItem(TOKEN_KEY);
 }
 
 /** Reusable auth headers for all API calls. */

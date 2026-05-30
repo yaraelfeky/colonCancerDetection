@@ -12,9 +12,7 @@ export const axiosInstance = axios.create({
 });
 
 axiosInstance.interceptors.request.use((config) => {
-  const token =
-    localStorage.getItem("token") ||
-    sessionStorage.getItem("token");
+  const token = localStorage.getItem("token");
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -58,7 +56,10 @@ axiosInstance.interceptors.response.use(
       originalRequest.url?.includes("/api/Auth/google-register-doctor") ||
       originalRequest.url?.includes("/api/Auth/refresh-token") ||
       originalRequest.url?.includes("/api/auth/password/forgot") ||
-      originalRequest.url?.includes("/api/auth/password/reset")
+      originalRequest.url?.includes("/api/auth/password/reset") ||
+      originalRequest.url?.includes("/api/Auth/delete") ||
+      originalRequest.url?.includes("/api/Auth/updateMail") ||
+      originalRequest.url?.includes("/api/Auth/updateUsername")
     ) {
       return Promise.reject(error);
     }

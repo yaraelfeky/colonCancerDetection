@@ -16,6 +16,7 @@ import type {
   LoginRequestDto,
   RegisterRequestDto,
   RequestPasswordChangeOtpDto,
+  DeleteAccountDto,
   UpdateMailDto,
   UpdateUsernameDto,
 } from "../types/auth";
@@ -28,6 +29,7 @@ const AUTH_REFRESH = "/api/Auth/refresh-token";
 const AUTH_LOGOUT = "/api/Auth/logout";
 const AUTH_UPDATE_MAIL = "/api/Auth/updateMail";
 const AUTH_UPDATE_USERNAME = "/api/Auth/updateUsername";
+const AUTH_DELETE = "/api/Auth/delete";
 const PASSWORD_CHANGE_REQUEST = "/api/auth/password/change/request";
 const PASSWORD_CHANGE_CONFIRM = "/api/auth/password/change/confirm";
 const PASSWORD_FORGOT = "/api/auth/password/forgot";
@@ -37,12 +39,6 @@ export { TOKEN_KEY };
 const REFRESH_TOKEN_KEY = "refreshToken";
 const REMEMBER_KEY = "rememberMe";
 
-function persistToken(token: string | null | undefined): void {
-  if (token) {
-    localStorage.setItem(TOKEN_KEY, token);
-  }
-}
-
 function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(TOKEN_KEY);
@@ -51,45 +47,38 @@ function clearToken(): void {
   localStorage.removeItem(REMEMBER_KEY);
 }
 
-function handleAuthResponse(data: AuthResponseDto): void {
-  if (!data.success) {
-    clearToken();
-    throw new Error(data.message || "Authentication failed");
-  }
+function extractToken(data: AuthResponseDto): string | null {
+  return data.accessToken ?? data.token ?? null;
+}
 
-  const token = data.accessToken ?? data.token ?? null;
-  if (!token) {
-    clearToken();
-    throw new Error(data.message || "No token received");
-  }
+/** All auth tokens persist in localStorage only (existing keys: token, refreshToken). */
+function persistAuthTokensToLocalStorage(
+  accessToken: string,
+  refreshToken: string | null
+): void {
+  sessionStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(REFRESH_TOKEN_KEY);
 
-  persistToken(token);
+  localStorage.setItem(TOKEN_KEY, accessToken);
+  if (refreshToken) {
+    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+  }
+  localStorage.setItem(REMEMBER_KEY, "1");
 }
 
 function persistTokenForLogin(
   token: string,
   refreshToken: string | null,
-  remember = true
+  _remember = true
 ): void {
   clearToken();
-
-  if (remember) {
-    localStorage.setItem(TOKEN_KEY, token);
-    if (refreshToken) {
-      localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-    }
-    localStorage.setItem(REMEMBER_KEY, "1");
-  } else {
-    sessionStorage.setItem(TOKEN_KEY, token);
-    if (refreshToken) {
-      sessionStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-    }
-    localStorage.removeItem(REMEMBER_KEY);
-  }
+  persistAuthTokensToLocalStorage(token, refreshToken);
 }
 
-function extractToken(data: AuthResponseDto): string | null {
-  return data.accessToken ?? data.token ?? null;
+function applyAuthTokensFromResponse(data: AuthResponseDto): void {
+  const token = extractToken(data);
+  if (!token) return;
+  persistAuthTokensToLocalStorage(token, data.refreshToken ?? null);
 }
 
 export const authService = {
@@ -208,10 +197,7 @@ export const authService = {
       throw new Error("Token refresh failed");
     }
 
-    const remember =
-      localStorage.getItem(REMEMBER_KEY) === "1" ||
-      !!localStorage.getItem(REFRESH_TOKEN_KEY);
-    persistTokenForLogin(newToken, data.refreshToken ?? refreshToken, remember);
+    persistTokenForLogin(newToken, data.refreshToken ?? refreshToken);
     return newToken;
   },
 
@@ -224,15 +210,41 @@ export const authService = {
     clearToken();
   },
 
-  async updateMail(dto: UpdateMailDto): Promise<void> {
-    await axiosInstance.put(AUTH_UPDATE_MAIL, dto);
+  /** PUT /api/Auth/updateMail */
+  async updateEmail(newEmail: string): Promise<AuthResponseDto> {
+    const payload: UpdateMailDto = { newEmail: newEmail.trim() };
+    const { data } = await axiosInstance.put<AuthResponseDto>(
+      AUTH_UPDATE_MAIL,
+      payload
+    );
+    if (!data.success) {
+      throw new Error(data.message || "Failed to update email");
+    }
+    applyAuthTokensFromResponse(data);
+    return data;
   },
 
-  async updateUsername(dto: UpdateUsernameDto): Promise<void> {
-    await axiosInstance.put(AUTH_UPDATE_USERNAME, dto);
+  /** PUT /api/Auth/updateUsername */
+  async updateUsername(newUserName: string): Promise<AuthResponseDto> {
+    const payload: UpdateUsernameDto = { newUserName: newUserName.trim() };
+    const { data } = await axiosInstance.put<AuthResponseDto>(
+      AUTH_UPDATE_USERNAME,
+      payload
+    );
+    if (!data.success) {
+      throw new Error(data.message || "Failed to update username");
+    }
+    applyAuthTokensFromResponse(data);
+    return data;
   },
 
-  async requestPasswordChange(dto: RequestPasswordChangeOtpDto): Promise<void> {
+  /** @deprecated Use updateEmail */
+  async updateMail(dto: UpdateMailDto): Promise<AuthResponseDto> {
+    return this.updateEmail(dto.newEmail);
+  },
+
+  async requestPasswordChange(currentPassword: string): Promise<ApiResultDto> {
+    const dto: RequestPasswordChangeOtpDto = { currentPassword };
     const { data } = await axiosInstance.post<ApiResultDto>(
       PASSWORD_CHANGE_REQUEST,
       dto
@@ -240,16 +252,38 @@ export const authService = {
     if (!data.success) {
       throw new Error(data.message || "Failed to send verification code");
     }
+    return data;
   },
 
-  async confirmPasswordChange(dto: ConfirmPasswordChangeDto): Promise<void> {
+  async confirmPasswordChange(
+    payload: ConfirmPasswordChangeDto
+  ): Promise<ApiResultDto> {
+    const body: ConfirmPasswordChangeDto = {
+      otpCode: payload.otpCode.trim(),
+      newPassword: payload.newPassword,
+      confirmNewPassword: payload.confirmNewPassword,
+    };
     const { data } = await axiosInstance.post<ApiResultDto>(
       PASSWORD_CHANGE_CONFIRM,
-      dto
+      body
     );
     if (!data.success) {
       throw new Error(data.message || "Failed to change password");
     }
+    return data;
+  },
+
+  /** DELETE /api/Auth/delete */
+  async deleteAccount(password: string): Promise<AuthResponseDto> {
+    const payload: DeleteAccountDto = { password };
+    const response = await axiosInstance.delete<AuthResponseDto>(AUTH_DELETE, {
+      data: payload,
+    });
+    const { data } = response;
+    if (!data.success) {
+      throw new Error(data.message || "Failed to delete account");
+    }
+    return data;
   },
 
   async forgotPassword(dto: ForgotPasswordRequestDto): Promise<ApiResultDto> {
@@ -288,10 +322,7 @@ export const authService = {
   },
 
   getRefreshToken(): string | null {
-    return (
-      localStorage.getItem(REFRESH_TOKEN_KEY) ||
-      sessionStorage.getItem(REFRESH_TOKEN_KEY)
-    );
+    return localStorage.getItem(REFRESH_TOKEN_KEY);
   },
 
   isAuthenticated(): boolean {

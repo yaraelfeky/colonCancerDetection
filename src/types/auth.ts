@@ -60,7 +60,12 @@ export interface UpdateMailDto {
 
 /** PUT /api/Auth/updateUsername — note: capital N in UserName */
 export interface UpdateUsernameDto {
-  newUserName: string | null;
+  newUserName: string;
+}
+
+/** DELETE /api/Auth/delete */
+export interface DeleteAccountDto {
+  password: string;
 }
 
 /** POST /api/auth/password/change/request */

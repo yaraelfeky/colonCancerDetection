@@ -13,7 +13,14 @@ import type {
   DoctorReviewDto,
   DoctorScheduleSlotDto,
 } from "../../types/doctor";
-import { readLocalAvatarDataUrl, writeLocalAvatarDataUrl } from "../../utils/localDoctorProfile";
+import {
+  readLocalAvatarDataUrl,
+  writeLocalAvatarDataUrl,
+} from "../../utils/localDoctorProfile";
+import {
+  resolveDisplayEmail,
+  resolveDisplayUserName,
+} from "../../utils/authUser";
 
 const PRIMARY = "#1E88E5";
 const SECONDARY = "#26A69A";
@@ -167,7 +174,7 @@ const sidebarNav: { id: TabId; label: string; path: string }[] = [
 ];
 
 export default function DoctorProfileDashboard() {
-  const { user } = useAuth();
+  const { user, doctorProfile: authDoctorProfile } = useAuth();
   const [tab, setTab] = useState<TabId>("overview");
   const [loading, setLoading] = useState(true);
   const [apiProfile, setApiProfile] = useState<DoctorProfileDto | null>(null);
@@ -175,6 +182,14 @@ export default function DoctorProfileDashboard() {
   const [scheduleDraft, setScheduleDraft] = useState<DoctorScheduleSlotDto[]>(defaultSchedule);
   const [savingSchedule, setSavingSchedule] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [profileUiTick, setProfileUiTick] = useState(0);
+
+  useEffect(() => {
+    const onProfile = () => setProfileUiTick((n) => n + 1);
+    window.addEventListener("colonai-local-profile-changed", onProfile);
+    return () =>
+      window.removeEventListener("colonai-local-profile-changed", onProfile);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -194,11 +209,15 @@ export default function DoctorProfileDashboard() {
 
   const display = useMemo(() => {
     const name =
-      apiProfile?.fullName?.trim() ||
-      user?.username?.trim() ||
-      user?.email?.split("@")[0] ||
-      "Doctor";
-    const email = apiProfile?.email ?? user?.email ?? "";
+      resolveDisplayUserName(
+        user,
+        authDoctorProfile?.userName ?? apiProfile?.userName
+      ) || "Doctor";
+    const email = resolveDisplayEmail(
+      user,
+      authDoctorProfile?.email ?? apiProfile?.email
+    );
+    void profileUiTick;
     const specialty = apiProfile?.specialty?.trim() || "";
     const years = apiProfile?.yearsOfExperience ?? 0;
     const rating = apiProfile?.averageRating ?? 0;
@@ -236,7 +255,20 @@ export default function DoctorProfileDashboard() {
       shortId,
       reviewsCount: apiProfile?.reviewsCount ?? 0,
     };
-  }, [apiProfile, user]);
+  }, [apiProfile, user, authDoctorProfile, profileUiTick]);
+
+  useEffect(() => {
+    if (!user) return;
+    setApiProfile((prev) =>
+      prev
+        ? {
+            ...prev,
+            userName: user.userName,
+            email: user.email,
+          }
+        : prev
+    );
+  }, [user?.userName, user?.email]);
 
   const stats = apiProfile?.stats;
   const reviews: DoctorReviewDto[] = apiProfile?.reviews ?? [];

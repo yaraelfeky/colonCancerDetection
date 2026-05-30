@@ -16,17 +16,23 @@ import type {
 } from "../types/auth";
 import type { DoctorProfileDto } from "../types/doctor";
 import {
+  clearStoredAuthIdentity,
+  readStoredAuthIdentity,
+  writeStoredAuthIdentity,
+} from "../utils/authIdentityStore";
+import {
   clearStoredUserRole,
   parseRoleFromJwt,
   setStoredUserRole,
 } from "../utils/userRole";
-import { writeLocalProfile } from "../utils/localDoctorProfile";
+import {
+  notifyDoctorProfileChanged,
+  readLocalProfile,
+  writeLocalProfile,
+} from "../utils/localDoctorProfile";
+import { type AuthUser, readAuthUser } from "../utils/authUser";
 
-export interface User {
-  email: string;
-  username?: string;
-  role?: string;
-}
+export type User = AuthUser;
 
 interface AuthState {
   user: User | null;
@@ -49,45 +55,27 @@ interface AuthContextValue extends AuthState {
     newPassword: string,
     confirmNewPassword: string
   ) => Promise<void>;
+  deleteAccount: (password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function readStoredUser(): User | null {
-  const token = authService.getToken();
-  if (!token) return null;
+function mergeDoctorProfileWithIdentity(
+  profile: DoctorProfileDto | null,
+  user: User | null
+): DoctorProfileDto | null {
+  if (!profile && !user) return null;
+  const stored = readStoredAuthIdentity();
+  const userName =
+    stored.userName?.trim() || user?.userName?.trim() || profile?.userName;
+  const email =
+    stored.email?.trim() || user?.email?.trim() || profile?.email;
 
-  try {
-    const payload = JSON.parse(atob(token.split(".")[1] ?? "{}"));
-
-    const email =
-      (payload[
-        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"
-      ] as string | undefined) ??
-      (payload.email as string | undefined) ??
-      (payload.sub as string | undefined) ??
-      "";
-
-    const username =
-      (payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"] as
-        | string
-        | undefined) ??
-      (payload.username as string | undefined) ??
-      (payload.unique_name as string | undefined) ??
-      "";
-
-    const role = parseRoleFromJwt(token) ?? "";
-
-    if (!email) return null;
-
-    return {
-      email,
-      username,
-      role,
-    };
-  } catch {
-    return null;
-  }
+  return {
+    ...(profile ?? {}),
+    ...(userName ? { userName } : {}),
+    ...(email ? { email } : {}),
+  };
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -98,19 +86,70 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isLoading: true,
   });
 
+  const applyIdentityUpdate = useCallback(
+    (patch: { email?: string; userName?: string }) => {
+      if (patch.userName !== undefined) {
+        writeStoredAuthIdentity({ userName: patch.userName });
+      }
+      if (patch.email !== undefined) {
+        writeStoredAuthIdentity({ email: patch.email });
+      }
+
+      const profilePatch: Partial<DoctorProfileDto> = {};
+      if (patch.userName !== undefined) profilePatch.userName = patch.userName;
+      if (patch.email !== undefined) profilePatch.email = patch.email;
+      if (Object.keys(profilePatch).length > 0) {
+        writeLocalProfile(profilePatch);
+      }
+
+      setState((prev) => {
+        const nextUser = prev.user
+          ? {
+              ...prev.user,
+              ...(patch.email !== undefined ? { email: patch.email } : {}),
+              ...(patch.userName !== undefined
+                ? { userName: patch.userName }
+                : {}),
+            }
+          : readAuthUser();
+
+        const nextDoctorProfile = mergeDoctorProfileWithIdentity(
+          prev.doctorProfile
+            ? { ...prev.doctorProfile, ...profilePatch }
+            : { ...profilePatch },
+          nextUser
+        );
+
+        return {
+          ...prev,
+          user: nextUser,
+          doctorProfile: nextDoctorProfile,
+        };
+      });
+
+      notifyDoctorProfileChanged();
+    },
+    []
+  );
+
   const refreshAuth = useCallback(async () => {
     const isAuthenticated = authService.isAuthenticated();
-    const user = isAuthenticated ? readStoredUser() : null;
+    const user = isAuthenticated ? readAuthUser() : null;
     let doctorProfile: DoctorProfileDto | null = null;
 
     if (isAuthenticated && user?.role?.toLowerCase() === "doctor") {
       try {
-        doctorProfile = await doctorService.getProfile();
+        const apiProfile = await doctorService.getProfile();
+        doctorProfile = mergeDoctorProfileWithIdentity(apiProfile, user);
         if (doctorProfile) {
-          writeLocalProfile(doctorProfile);
+          writeLocalProfile({
+            userName: doctorProfile.userName,
+            email: doctorProfile.email,
+          });
         }
-      } catch (error) {
-        console.warn("فشل في جلب ملف الطبيب:", error);
+      } catch {
+        const local = readLocalProfile();
+        doctorProfile = mergeDoctorProfileWithIdentity(local, user);
       }
     }
 
@@ -120,7 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     setState({
-      user,
+      user: isAuthenticated ? readAuthUser() : null,
       doctorProfile,
       isAuthenticated,
       isLoading: false,
@@ -134,26 +173,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(
     async (dto: LoginRequestDto, remember: boolean) => {
       await authService.login(dto, remember);
+      const user = readAuthUser();
+      if (user) {
+        writeStoredAuthIdentity({
+          userName: user.userName,
+          email: user.email,
+        });
+      }
       await refreshAuth();
     },
-    [refreshAuth],
+    [refreshAuth]
   );
 
-  const register = useCallback(
-    async (dto: RegisterRequestDto) => {
-      await authService.register(dto);
-      // Do NOT call refreshAuth — user is pending admin approval
-    },
-    [],
-  );
+  const register = useCallback(async (dto: RegisterRequestDto) => {
+    await authService.register(dto);
+  }, []);
 
-  const googleRegister = useCallback(
-    async (dto: GoogleRegisterRequestDto) => {
-      await authService.googleRegister(dto);
-      // Do NOT call refreshAuth — user is pending admin approval
-    },
-    [],
-  );
+  const googleRegister = useCallback(async (dto: GoogleRegisterRequestDto) => {
+    await authService.googleRegister(dto);
+  }, []);
 
   const googleLogin = useCallback(
     async (dto: GoogleLoginRequestDto, remember: boolean) => {
@@ -163,18 +201,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         !result.requiresRegistration &&
         !result.isPendingApproval
       ) {
+        const user = readAuthUser();
+        if (user) {
+          writeStoredAuthIdentity({
+            userName: user.userName,
+            email: user.email,
+          });
+        }
         await refreshAuth();
       }
       return result;
     },
-    [refreshAuth],
+    [refreshAuth]
   );
 
   const logout = useCallback(async () => {
     await authService.logout();
     clearStoredUserRole();
+    clearStoredAuthIdentity();
     localStorage.removeItem("token");
-    window.dispatchEvent(new Event("colonai-local-profile-changed"));
+    notifyDoctorProfileChanged();
     setState({
       user: null,
       doctorProfile: null,
@@ -185,25 +231,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updateMail = useCallback(
     async (newEmail: string) => {
-      await authService.updateMail({ newEmail });
-      await refreshAuth();
+      const trimmed = newEmail.trim();
+      await authService.updateEmail(trimmed);
+      applyIdentityUpdate({ email: trimmed });
     },
-    [refreshAuth],
+    [applyIdentityUpdate]
   );
 
   const updateUsername = useCallback(
-    async (newUserName: string) => {
-      await authService.updateUsername({ newUserName });
-      await refreshAuth();
+    async (newUsername: string) => {
+      const trimmed = newUsername.trim();
+      await authService.updateUsername(trimmed);
+      applyIdentityUpdate({ userName: trimmed });
     },
-    [refreshAuth],
+    [applyIdentityUpdate]
   );
 
   const requestPasswordChange = useCallback(
     async (currentPassword: string) => {
-      await authService.requestPasswordChange({ currentPassword });
+      await authService.requestPasswordChange(currentPassword);
     },
-    [],
+    []
   );
 
   const confirmPasswordChange = useCallback(
@@ -214,7 +262,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         confirmNewPassword,
       });
     },
-    [],
+    []
+  );
+
+  const deleteAccount = useCallback(
+    async (password: string) => {
+      await authService.deleteAccount(password);
+      await logout();
+    },
+    [logout]
   );
 
   const value: AuthContextValue = {
@@ -228,6 +284,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     updateUsername,
     requestPasswordChange,
     confirmPasswordChange,
+    deleteAccount,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
