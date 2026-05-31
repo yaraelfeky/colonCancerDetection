@@ -15,6 +15,7 @@ import ScrollReveal from "../../components/ScrollReveal";
 import { readAuthToken } from "../../utils/authToken";
 import { apiUrl } from "../../utils/apiUrl";
 import { medicalRecordService } from "../../services/medicalRecordService";
+import { patientService, type ListPatient } from "../../services/patientService";
 
 /** Set to `false` to call the real upload + analyze API chain. */
 const USE_MOCK = false;
@@ -135,6 +136,32 @@ const DiagnosisPage: React.FC = () => {
   const [resultsVisible, setResultsVisible] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const patientInputRef = useRef<HTMLInputElement>(null);
+  const [doctorPatients, setDoctorPatients] = useState<ListPatient[]>([]);
+  const [showPatientSuggestions, setShowPatientSuggestions] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    patientService
+      .getDoctorPatients()
+      .then((list) => {
+        if (!cancelled) setDoctorPatients(list);
+      })
+      .catch(() => {
+        if (!cancelled) setDoctorPatients([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const patientSuggestions = useMemo(() => {
+    const q = patientName.trim().toLowerCase();
+    const matches = q
+      ? doctorPatients.filter((p) => p.name.toLowerCase().includes(q))
+      : doctorPatients;
+    return matches.slice(0, 10);
+  }, [patientName, doctorPatients]);
 
   useEffect(() => {
     const stored = readStoredDiagnosisCase();
@@ -577,7 +604,7 @@ const DiagnosisPage: React.FC = () => {
             >
               {stage === "CASE_INFO" && (
                 <div className="mx-auto max-w-lg space-y-6">
-                  <div>
+                  <div className="relative">
                     <label
                       htmlFor="diagnosis-patient-name"
                       className="mb-2 block text-sm font-semibold text-slate-700"
@@ -585,14 +612,42 @@ const DiagnosisPage: React.FC = () => {
                       Patient name
                     </label>
                     <input
+                      ref={patientInputRef}
                       id="diagnosis-patient-name"
                       type="text"
-                      autoComplete="name"
+                      autoComplete="off"
                       value={patientName}
                       onChange={(e) => setPatientName(e.target.value)}
+                      onFocus={() => setShowPatientSuggestions(true)}
+                      onBlur={() => {
+                        window.setTimeout(() => setShowPatientSuggestions(false), 150);
+                      }}
                       placeholder="Enter patient name"
                       className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm focus:border-[#0A6EBD] focus:outline-none focus:ring-2 focus:ring-[#0A6EBD]/30"
                     />
+                    {showPatientSuggestions && patientSuggestions.length > 0 ? (
+                      <ul
+                        className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+                        role="listbox"
+                        aria-label="Patient suggestions"
+                      >
+                        {patientSuggestions.map((p) => (
+                          <li key={p.id} role="option">
+                            <button
+                              type="button"
+                              className="w-full px-4 py-2.5 text-left text-sm text-slate-800 transition hover:bg-slate-50"
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                setPatientName(p.name);
+                                setShowPatientSuggestions(false);
+                              }}
+                            >
+                              {p.name}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
                   </div>
 
                   <div>

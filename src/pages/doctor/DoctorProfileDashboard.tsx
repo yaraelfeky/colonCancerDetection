@@ -4,6 +4,7 @@ import Navbar from "../../components/Layout/Navbar";
 import Footer from "../../components/Layout/Footer";
 import { useAuth } from "../../Context/AuthContext";
 import { doctorService } from "../../services/doctorService";
+import { patientService, type ListPatient } from "../../services/patientService";
 
 import type {
   DoctorAchievementDto,
@@ -184,6 +185,7 @@ export default function DoctorProfileDashboard() {
   const [savingSchedule, setSavingSchedule] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [profileUiTick, setProfileUiTick] = useState(0);
+  const [doctorPatientCount, setDoctorPatientCount] = useState<number | null>(null);
 
   useEffect(() => {
     const onProfile = () => setProfileUiTick((n) => n + 1);
@@ -194,8 +196,12 @@ export default function DoctorProfileDashboard() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const p = await doctorService.getProfile();
+    const [p, patients] = await Promise.all([
+      doctorService.getProfile(),
+      patientService.getDoctorPatients().catch(() => [] as ListPatient[]),
+    ]);
     setApiProfile(p);
+    setDoctorPatientCount(patients.length);
     if (p?.schedule?.length) {
       setScheduleDraft(p.schedule);
     } else {
@@ -295,7 +301,7 @@ export default function DoctorProfileDashboard() {
   const statCards = [
     {
       label: "Total patients",
-      value: stats?.patientsCount ?? 0,
+      value: doctorPatientCount ?? stats?.patientsCount ?? 0,
       hint: "+12% vs last month",
       accent: PRIMARY,
       filled: true,
