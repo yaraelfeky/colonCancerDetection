@@ -9,6 +9,7 @@ import {
 import Navbar from "../components/Layout/Navbar";
 import Footer from "../components/Layout/Footer";
 import Container from "../components/Layout/Container";
+import ScrollReveal from "../components/ScrollReveal";
 import {
   Mail,
   User,
@@ -262,6 +263,7 @@ const SettingsPage: React.FC = () => {
 
             <div className="space-y-8">
               {/* Account Information */}
+              <ScrollReveal variant="fade-up" delay={50}>
               <section aria-labelledby="settings-account-heading">
                 <div className="mb-4 flex items-center gap-2">
                   <User className="text-[#2b7fff]" size={20} aria-hidden />
@@ -392,8 +394,10 @@ const SettingsPage: React.FC = () => {
                   </div>
                 </div>
               </section>
+              </ScrollReveal>
 
               {/* Security */}
+              <ScrollReveal variant="fade-up" delay={100}>
               <section aria-labelledby="settings-security-heading">
                 <div className="mb-4 flex items-center gap-2">
                   <Shield className="text-[#2b7fff]" size={20} aria-hidden />
@@ -585,8 +589,10 @@ const SettingsPage: React.FC = () => {
                   </div>
                 </div>
               </section>
+              </ScrollReveal>
 
               {/* Danger zone */}
+              <ScrollReveal variant="fade-up" delay={150}>
               <section aria-labelledby="settings-danger-heading">
                 <div className="mb-4 flex items-center gap-2">
                   <Trash2 className="text-red-600" size={20} aria-hidden />
@@ -637,6 +643,7 @@ const SettingsPage: React.FC = () => {
                   </div>
                 </div>
               </section>
+              </ScrollReveal>
             </div>
           </div>
         </Container>

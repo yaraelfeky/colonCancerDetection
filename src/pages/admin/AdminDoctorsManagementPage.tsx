@@ -8,6 +8,7 @@ import {
   type AdminDoctorListItem,
   type AdminDoctorDetails,
 } from "../../services/adminDoctorService";
+import ScrollReveal from "../../components/ScrollReveal";
 
 type TabId = "pending" | "approved" ;
 
@@ -417,10 +418,10 @@ const rejectDoctor = async () => {
                 </div>
               ) : (
                 <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-                  {activeList.map((d) => (
+                  {activeList.map((d, index) => (
+                    <ScrollReveal key={d.doctorUserId} variant="fade-up" delay={index * 50}>
                     <article
-                      key={d.doctorUserId}
-                      className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                      className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md h-full"
                     >
                       <div className="mb-3 flex items-center justify-between gap-3">
                         <div className="min-w-0">
@@ -493,6 +494,7 @@ const rejectDoctor = async () => {
                         </button>
                       </div>
                     </article>
+                    </ScrollReveal>
                   ))}
                 </div>
               )}

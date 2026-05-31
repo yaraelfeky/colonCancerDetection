@@ -11,6 +11,7 @@ import {
   RefreshCw,
   X,
 } from "lucide-react";
+import ScrollReveal from "../../components/ScrollReveal";
 import { readAuthToken } from "../../utils/authToken";
 import { apiUrl } from "../../utils/apiUrl";
 import { medicalRecordService } from "../../services/medicalRecordService";
@@ -557,6 +558,7 @@ const DiagnosisPage: React.FC = () => {
       <main className="flex-1" style={{ background: "#F5F7FA" }}>
         <section className="py-8 md:py-10">
           <Container>
+            <ScrollReveal variant="fade-down" delay={50}>
             <div className="mb-8">
               <h1 className="text-2xl font-extrabold text-slate-800 md:text-3xl">
                 AI Colon Cancer Diagnosis
@@ -566,7 +568,9 @@ const DiagnosisPage: React.FC = () => {
                 AI-assisted findings.
               </p>
             </div>
+            </ScrollReveal>
 
+            <ScrollReveal variant="fade-up" delay={100}>
             <div
               className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm md:p-8"
               style={{ boxShadow: "0 6px 24px rgba(0,0,0,0.06)" }}
@@ -922,6 +926,7 @@ const DiagnosisPage: React.FC = () => {
                 </div>
               )}
             </div>
+            </ScrollReveal>
           </Container>
         </section>
       </main>

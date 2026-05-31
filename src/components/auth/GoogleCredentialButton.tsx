@@ -59,10 +59,10 @@ const GoogleCredentialButton: React.FC<GoogleCredentialButtonProps> = ({
     
       className={`
         w-full rounded-2xl p-[5px]
-        bg-gradient-to-r from-blue-500 via-green-500 via-yellow-400 to-red-500
-        shadow-lg transition-all duration-300
-        hover:scale-[1.02]
-        hover:shadow-xlgoogle-credential-btn-wrap ${isDisabled ? "google-credential-btn-wrap--disabled" : ""}`}
+        bg-white border border-slate-200
+        shadow-sm transition-all duration-300
+        hover:-translate-y-0.5
+        hover:shadow-md google-credential-btn-wrap ${isDisabled ? "google-credential-btn-wrap--disabled" : ""}`}
       aria-busy={busy}
     >
       <div className="google-credential-btn-fallback" aria-hidden={!isDisabled}>

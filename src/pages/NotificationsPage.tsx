@@ -15,6 +15,7 @@ import { notificationHub } from "../services/notificationHub";
 import {
   addUnreadNotifications,
 } from "../utils/notificationsUnread";
+import ScrollReveal from "../components/ScrollReveal";
 
 function formatDate(value?: string): string {
   if (!value) return "—";
@@ -149,9 +150,9 @@ export default function NotificationsPage() {
 
           {!loading && notifications.length > 0 && (
             <div className="space-y-3">
-              {notifications.map((n) => (
+              {notifications.map((n, index) => (
+                <ScrollReveal key={n.id} variant="fade-up" delay={index * 50}>
                 <article
-                  key={n.id}
                   className={`rounded-2xl border p-5 shadow-sm ${
                     isUnread(n)
                       ? "bg-white border-blue-100"
@@ -178,6 +179,7 @@ export default function NotificationsPage() {
                     )}
                   </div>
                 </article>
+                </ScrollReveal>
               ))}
             </div>
           )}

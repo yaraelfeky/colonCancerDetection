@@ -4,6 +4,7 @@ import { useAuth } from "../../Context/AuthContext";
 import { getAxiosErrorMessage } from "../../utils/axiosError";
 import GoogleCredentialButton from "../../components/auth/GoogleCredentialButton";
 import { useGoogleCredentialAuth } from "../../hooks/useGoogleCredentialAuth";
+import ScrollReveal from "../../components/ScrollReveal";
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -98,6 +99,7 @@ const LoginPage: React.FC = () => {
 
   return (
     <div className="auth-page-wrap">
+      <ScrollReveal variant="fade-up" delay={50} className="w-full flex justify-center">
       <div className="auth-card">
         <div className="auth-card-left">
           <div className="auth-card-left-bg" />
@@ -246,6 +248,7 @@ const LoginPage: React.FC = () => {
           </form>
         </div>
       </div>
+      </ScrollReveal>
     </div>
   );
 };

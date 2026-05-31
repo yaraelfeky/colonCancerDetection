@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import Navbar from "../../components/Layout/Navbar";
 import Footer from "../../components/Layout/Footer";
 import Container from "../../components/Layout/Container";
+import ScrollReveal from "../../components/ScrollReveal";
 import {
   CheckCircle,
   Clock,
@@ -710,11 +711,12 @@ const MedicalRecordPage: React.FC = () => {
 
     return (
       <div className="space-y-3">
-        {entries.flatMap((entry) => {
+        {entries.flatMap((entry, index) => {
           const base = toMedicalEntryBase(entry);
           if (!base) return [];
           return [
-            <div key={Number(entry.id)} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <ScrollReveal key={Number(entry.id)} variant="fade-up" delay={index * 50}>
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <p className="font-semibold text-slate-900">
                   {activeTab === "allergies" && String(entry.name)}
@@ -769,7 +771,8 @@ const MedicalRecordPage: React.FC = () => {
               {renderReviewNote(base)}
               {renderPendingActions(activeTab, base)}
               {renderEntryActions(activeTab, entry)}
-            </div>,
+            </div>
+            </ScrollReveal>,
           ];
         })}
         <button

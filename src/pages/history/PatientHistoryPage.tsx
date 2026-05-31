@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import Navbar from "../../components/Layout/Navbar";
 import Footer from "../../components/Layout/Footer";
 import Container from "../../components/Layout/Container";
+import ScrollReveal from "../../components/ScrollReveal";
 import { Clock, History, ScanLine, Stethoscope } from "lucide-react";
 import { patientService } from "../../services/patientService";
 import {
@@ -173,6 +174,7 @@ const PatientHistoryPage: React.FC = () => {
       <main className="flex-1 pb-12">
         <section className="border-b border-slate-200 bg-white shadow-sm">
           <Container>
+            <ScrollReveal variant="fade-up" delay={50}>
             <div className="py-6">
               <h1 className="text-2xl font-extrabold text-slate-900 md:text-3xl">Patient History</h1>
               {headerPatientName ? (
@@ -182,10 +184,12 @@ const PatientHistoryPage: React.FC = () => {
                 Visits, tests, medications, and AI scans in chronological order.
               </p>
             </div>
+            </ScrollReveal>
           </Container>
         </section>
 
         <Container>
+          <ScrollReveal variant="fade-up" delay={100}>
           <div className="mt-6 max-w-md">
             <label htmlFor="hist-patient" className="mb-1 block text-xs font-semibold text-slate-600">
               Patient
@@ -213,6 +217,7 @@ const PatientHistoryPage: React.FC = () => {
               ))}
             </select>
           </div>
+          </ScrollReveal>
 
           {loadError && (
             <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
@@ -234,9 +239,9 @@ const PatientHistoryPage: React.FC = () => {
             </p>
           ) : (
             <div className="mt-6 space-y-3">
-              {events.map((ev) => (
+              {events.map((ev, index) => (
+                <ScrollReveal key={ev.id} variant="fade-up" delay={index * 50}>
                 <div
-                  key={ev.id}
                   className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
@@ -261,6 +266,7 @@ const PatientHistoryPage: React.FC = () => {
                   </div>
                   <p className="mt-3 text-sm text-slate-600">{ev.summary}</p>
                 </div>
+                </ScrollReveal>
               ))}
             </div>
           )}

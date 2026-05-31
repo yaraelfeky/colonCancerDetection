@@ -20,7 +20,13 @@ import {
   Users,
   FileText,
   History,
+  Trash2,
+  HeartPulse,
+  User,
+  PlusCircle,
+  Activity
 } from "lucide-react";
+import ScrollReveal from "../../components/ScrollReveal";
 import {
   buildPostPayload,
   doctorRequestService,
@@ -1499,10 +1505,10 @@ export const PatientsListPage: React.FC = () => {
               </div>
             ) : (
               <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2">
-                {filtered.map((p) => (
+                {filtered.map((p, index) => (
+                  <ScrollReveal key={p.id} variant="fade-up" delay={index * 50}>
                   <div
-                    key={p.id}
-                    className="relative rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md"
+                    className="relative rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md h-full"
                   >
                     <div className="absolute right-3 top-3 flex gap-1">
                       <button
@@ -1579,6 +1585,7 @@ export const PatientsListPage: React.FC = () => {
                     </div>
                     </button>
                   </div>
+                  </ScrollReveal>
                 ))}
               </div>
             )}

@@ -46,7 +46,7 @@ const handleStartDiagnosis = () => {
   requestAnimationFrame(() => {
     window.scrollTo({
       top: 0,
-      behavior: "instant",
+      behavior: "instant" as ScrollBehavior,
     });
   });
 };
@@ -104,7 +104,6 @@ const handleStartDiagnosis = () => {
     { label: "Medical Record", href: "/medical-record" },
     { label: "Appointment", href: "/appointments" },
     { label: "Report History", href: "/reports" },
-    { label: "Notifications", href: "/notifications" },
     ...(isAdmin ? [{ label: "Management", href: "/admin/doctors" }] : [])
   ];
 
@@ -317,8 +316,12 @@ const handleStartDiagnosis = () => {
                 </a>
               ))}
 
-              {/* Services dropdown - Fixed to allow clicking on items */}
-              <div className="relative ml-2">
+              {/* Services dropdown */}
+              <div 
+                className="relative ml-2 flex items-center h-full"
+                onMouseEnter={() => setServicesOpen(true)}
+                onMouseLeave={() => setServicesOpen(false)}
+              >
                 <button
                   type="button"
                   className="flex items-center px-5 no-underline text-sm font-bold tracking-wide text-white hover:bg-white/15 rounded-md p-2 transition-all duration-150"
@@ -345,21 +348,23 @@ const handleStartDiagnosis = () => {
                   </svg>
                 </button>
 
-                {/* Dropdown menu - stays open when clicking on items */}
+                {/* Dropdown menu */}
                 <div
-                  className={`absolute left-0 mt-2 w-56 bg-white rounded-md shadow-xl py-2 z-50 transition-all duration-200 ${servicesOpen ? "opacity-100 visible" : "opacity-0 invisible"}`}
+                  className={`absolute left-0 top-full pt-2 w-56 z-50 transition-all duration-200 ${servicesOpen ? "opacity-100 visible" : "opacity-0 invisible"}`}
                   style={{ pointerEvents: servicesOpen ? "auto" : "none" }}
                 >
-                  {services.map((item) => (
-                    <Link
-                      key={item.label}
-                      to={item.href}
-                      className="block px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-[#1E88E5] transition-colors duration-150"
-                      onClick={() => setServicesOpen(false)}
-                    >
-                      {item.label.toUpperCase()}
-                    </Link>
-                  ))}
+                  <div className="bg-white rounded-md shadow-xl py-2 border border-gray-100">
+                    {services.map((item) => (
+                      <Link
+                        key={item.label}
+                        to={item.href}
+                        className="block px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-[#1E88E5] transition-colors duration-150"
+                        onClick={() => setServicesOpen(false)}
+                      >
+                        {item.label.toUpperCase()}
+                      </Link>
+                    ))}
+                  </div>
                 </div>
               </div>
             </nav>

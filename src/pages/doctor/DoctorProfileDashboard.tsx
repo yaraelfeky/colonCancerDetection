@@ -21,6 +21,7 @@ import {
   resolveDisplayEmail,
   resolveDisplayUserName,
 } from "../../utils/authUser";
+import ScrollReveal from "../../components/ScrollReveal";
 
 const PRIMARY = "#1E88E5";
 const SECONDARY = "#26A69A";
@@ -538,9 +539,9 @@ export default function DoctorProfileDashboard() {
             {/* KPI row */}
             {!loading && (
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
-                {statCards.map((c) => (
+                {statCards.map((c, index) => (
+                  <ScrollReveal key={c.label} variant="fade-up" delay={index * 50}>
                   <div
-                    key={c.label}
                     className="rounded-2xl p-5 flex items-start justify-between gap-3 border border-gray-100/80 transition-transform hover:-translate-y-0.5"
                     style={{
                       background: c.filled ? `linear-gradient(135deg, ${PRIMARY}, #1565C0)` : "#fff",
@@ -571,6 +572,7 @@ export default function DoctorProfileDashboard() {
                       </svg>
                     </div>
                   </div>
+                  </ScrollReveal>
                 ))}
               </div>
             )}
@@ -579,8 +581,9 @@ export default function DoctorProfileDashboard() {
             <div className="space-y-6 pb-12">
               {tab === "overview" && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <ScrollReveal className="lg:col-span-2" variant="fade-right" delay={50}>
                   <div
-                    className="lg:col-span-2 rounded-3xl bg-white p-6 md:p-8 border border-gray-100"
+                    className="h-full rounded-3xl bg-white p-6 md:p-8 border border-gray-100"
                     style={{ boxShadow: "0 4px 24px rgba(15,23,42,0.05)" }}
                   >
                     <h2 className="text-lg font-extrabold mb-4 flex items-center gap-2 m-0" style={{ color: TEXT }}>
@@ -593,8 +596,10 @@ export default function DoctorProfileDashboard() {
                     </h2>
                     <p className="text-gray-600 leading-relaxed m-0">{display.bio}</p>
                   </div>
+                  </ScrollReveal>
+                  <ScrollReveal variant="fade-left" delay={100}>
                   <div
-                    className="rounded-3xl bg-white p-6 border border-gray-100"
+                    className="h-full rounded-3xl bg-white p-6 border border-gray-100"
                     style={{ boxShadow: "0 4px 24px rgba(15,23,42,0.05)" }}
                   >
                     <h3 className="text-xs font-bold text-gray-400 mb-4 uppercase tracking-wider m-0">Contact</h3>
@@ -635,9 +640,11 @@ export default function DoctorProfileDashboard() {
                       </svg>
                     </Link>
                   </div>
+                  </ScrollReveal>
 
                   <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    <div className="rounded-3xl bg-white p-6 md:p-8 border border-gray-100" style={{ boxShadow: "0 4px 24px rgba(15,23,42,0.05)" }}>
+                    <ScrollReveal variant="fade-up" delay={150}>
+                    <div className="h-full rounded-3xl bg-white p-6 md:p-8 border border-gray-100" style={{ boxShadow: "0 4px 24px rgba(15,23,42,0.05)" }}>
                       <h2 className="text-lg font-extrabold mb-4 flex items-center gap-2 m-0" style={{ color: TEXT }}>
                         <span className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "rgba(38,166,154,0.12)", color: SECONDARY }}>
                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -665,7 +672,9 @@ export default function DoctorProfileDashboard() {
                         </ul>
                       )}
                     </div>
-                    <div className="rounded-3xl bg-white p-6 md:p-8 border border-gray-100" style={{ boxShadow: "0 4px 24px rgba(15,23,42,0.05)" }}>
+                    </ScrollReveal>
+                    <ScrollReveal variant="fade-up" delay={200}>
+                    <div className="h-full rounded-3xl bg-white p-6 md:p-8 border border-gray-100" style={{ boxShadow: "0 4px 24px rgba(15,23,42,0.05)" }}>
                       <h2 className="text-lg font-extrabold mb-4 flex items-center gap-2 m-0" style={{ color: TEXT }}>
                         <span className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "rgba(30,136,229,0.12)", color: PRIMARY }}>
                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -690,7 +699,9 @@ export default function DoctorProfileDashboard() {
                         </ul>
                       )}
                     </div>
-                    <div className="rounded-3xl bg-white p-6 md:p-8 border border-gray-100 md:col-span-2 xl:col-span-1" style={{ boxShadow: "0 4px 24px rgba(15,23,42,0.05)" }}>
+                    </ScrollReveal>
+                    <ScrollReveal variant="fade-up" delay={250} className="md:col-span-2 xl:col-span-1">
+                    <div className="h-full rounded-3xl bg-white p-6 md:p-8 border border-gray-100" style={{ boxShadow: "0 4px 24px rgba(15,23,42,0.05)" }}>
                       <h2 className="text-lg font-extrabold mb-4 flex items-center gap-2 m-0" style={{ color: TEXT }}>
                         <span className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "rgba(124,58,237,0.1)", color: "#7C3AED" }}>
                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -714,6 +725,7 @@ export default function DoctorProfileDashboard() {
                         </ul>
                       )}
                     </div>
+                    </ScrollReveal>
                   </div>
                 </div>
               )}

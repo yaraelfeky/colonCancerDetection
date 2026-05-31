@@ -7,6 +7,7 @@ import {
   normalizeAppointment,
 } from "../../services/appointmentService";
 import { useAuth } from "../../Context/AuthContext";
+import ScrollReveal from "../../components/ScrollReveal";
 
 interface Patient {
   id: string;
@@ -518,9 +519,9 @@ const DoctorAppointmentDashboardPage: React.FC = () => {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {selectedDayAppointments.map((appointment) => (
+                      {selectedDayAppointments.map((appointment, index) => (
+                        <ScrollReveal key={appointment.id} variant="fade-up" delay={index * 50}>
                         <article
-                          key={appointment.id}
                           className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm transition hover:shadow-md"
                         >
                           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -603,6 +604,7 @@ const DoctorAppointmentDashboardPage: React.FC = () => {
                             </button>
                           </div>
                         </article>
+                        </ScrollReveal>
                       ))}
                     </div>
                   )}

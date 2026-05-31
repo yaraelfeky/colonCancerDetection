@@ -6,6 +6,7 @@ import Navbar from "../../components/Layout/Navbar";
 import Footer from "../../components/Layout/Footer";
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
+import ScrollReveal from "../../components/ScrollReveal";
 
 // data
 const features = [
@@ -265,60 +266,69 @@ const Home: React.FC = () => {
         {/* feature section */}
         <section id="features" className="py-24">
           <Container>
-            <div className="text-center mb-16">
-              <span
-                className="inline-block px-4 py-1.5 rounded-full text-xs font-semibold mb-4"
-                style={{ background: "rgba(30,136,229,0.1)", color: "#1E88E5" }}
-              >
-                Why ColonAI
-              </span>
-              <h2
-                className="text-3xl md:text-4xl font-extrabold mb-4"
-                style={{ color: "#0D1B2A", letterSpacing: "-0.75px" }}
-              >
-                Built for Accuracy.{" "}
+            <ScrollReveal variant="fade-up" duration={800}>
+              <div className="text-center mb-16">
                 <span
-                  style={{
-                    background: "linear-gradient(120deg, #1E88E5, #26A69A)",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                  }}
+                  className="inline-block px-4 py-1.5 rounded-full text-xs font-semibold mb-4"
+                  style={{ background: "rgba(30,136,229,0.1)", color: "#1E88E5" }}
                 >
-                  Designed for Clinicians.
+                  Why ColonAI
                 </span>
-              </h2>
-              <p className="text-gray-500 max-w-xl mx-auto leading-relaxed">
-                Every feature is engineered to support medical professionals in
-                making faster, more confident, and more accurate diagnoses.
-              </p>
-            </div>
+                <h2
+                  className="text-3xl md:text-4xl font-extrabold mb-4"
+                  style={{ color: "#0D1B2A", letterSpacing: "-0.75px" }}
+                >
+                  Built for Accuracy.{" "}
+                  <span
+                    style={{
+                      background: "linear-gradient(120deg, #1E88E5, #26A69A)",
+                      WebkitBackgroundClip: "text",
+                      WebkitTextFillColor: "transparent",
+                    }}
+                  >
+                    Designed for Clinicians.
+                  </span>
+                </h2>
+                <p className="text-gray-500 max-w-xl mx-auto leading-relaxed">
+                  Every feature is engineered to support medical professionals in
+                  making faster, more confident, and more accurate diagnoses.
+                </p>
+              </div>
+            </ScrollReveal>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {features.map((f) => (
-                <div
+              {features.map((f, i) => (
+                <ScrollReveal
                   key={f.title}
-                  className="group bg-white rounded-2xl p-6 flex flex-col gap-4 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl cursor-default"
-                  style={{ boxShadow: "0 2px 16px rgba(0,0,0,0.06)" }}
+                  variant="fade-up"
+                  delay={i * 100}
+                  duration={700}
+                  className="h-full"
                 >
                   <div
-                    className="w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 group-hover:scale-110"
-                    style={{ background: `${f.color}18`, color: f.color }}
+                    className="group bg-white rounded-2xl p-6 flex flex-col gap-4 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl cursor-default h-full"
+                    style={{ boxShadow: "0 2px 16px rgba(0,0,0,0.06)" }}
                   >
-                    {f.icon}
+                    <div
+                      className="w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 group-hover:scale-110"
+                      style={{ background: `${f.color}18`, color: f.color }}
+                    >
+                      {f.icon}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-gray-800 mb-2">{f.title}</h3>
+                      <p className="text-sm text-gray-500 leading-relaxed">
+                        {f.description}
+                      </p>
+                    </div>
+                    <div
+                      className="mt-auto h-0.5 w-0 rounded-full transition-all duration-500 group-hover:w-full"
+                      style={{
+                        background: `linear-gradient(90deg, ${f.color}, transparent)`,
+                      }}
+                    />
                   </div>
-                  <div>
-                    <h3 className="font-bold text-gray-800 mb-2">{f.title}</h3>
-                    <p className="text-sm text-gray-500 leading-relaxed">
-                      {f.description}
-                    </p>
-                  </div>
-                  <div
-                    className="mt-auto h-0.5 w-0 rounded-full transition-all duration-500 group-hover:w-full"
-                    style={{
-                      background: `linear-gradient(90deg, ${f.color}, transparent)`,
-                    }}
-                  />
-                </div>
+                </ScrollReveal>
               ))}
             </div>
           </Container>
@@ -331,133 +341,139 @@ const Home: React.FC = () => {
           style={{ background: "#EEF2F7" }}
         >
           <Container>
-            <div className="text-center mb-16">
-              <span
-                className="inline-block px-4 py-1.5 rounded-full text-xs font-semibold mb-4"
-                style={{
-                  background: "rgba(38,166,154,0.12)",
-                  color: "#26A69A",
-                }}
-              >
-                Simple Process
-              </span>
-              <h2
-                className="text-3xl md:text-4xl font-extrabold mb-4"
-                style={{ color: "#0D1B2A", letterSpacing: "-0.75px" }}
-              >
-                How It Works
-              </h2>
-              <p className="text-gray-500 max-w-lg mx-auto leading-relaxed">
-                From image upload to clinical report in four straightforward
-                steps.
-              </p>
-            </div>
+            <ScrollReveal variant="fade-up" duration={800}>
+              <div className="text-center mb-16">
+                <span
+                  className="inline-block px-4 py-1.5 rounded-full text-xs font-semibold mb-4"
+                  style={{
+                    background: "rgba(38,166,154,0.12)",
+                    color: "#26A69A",
+                  }}
+                >
+                  Simple Process
+                </span>
+                <h2
+                  className="text-3xl md:text-4xl font-extrabold mb-4"
+                  style={{ color: "#0D1B2A", letterSpacing: "-0.75px" }}
+                >
+                  How It Works
+                </h2>
+                <p className="text-gray-500 max-w-lg mx-auto leading-relaxed">
+                  From image upload to clinical report in four straightforward
+                  steps.
+                </p>
+              </div>
+            </ScrollReveal>
 
             <div className="flex flex-col lg:flex-row gap-8 items-start">
               {/* Steps sidebar */}
-              <div className="flex flex-col gap-3 w-full lg:w-80 flex-shrink-0">
-                {steps.map((s, i) => (
-                  <button
-                    key={s.step}
-                    onClick={() => setActiveStep(i)}
-                    className="flex items-center gap-4 p-4 rounded-2xl text-left transition-all duration-200 w-full"
-                    style={
-                      activeStep === i
-                        ? {
-                            background:
-                              "linear-gradient(135deg, #1E88E5, #26A69A)",
-                            boxShadow: "0 8px 24px rgba(30,136,229,0.3)",
-                            color: "white",
-                            transform: "scale(1.02)",
-                          }
-                        : {
-                            background: "white",
-                            boxShadow: "0 2px 12px rgba(0,0,0,0.05)",
-                            color: "#4B5563",
-                          }
-                    }
-                  >
-                    <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+              <ScrollReveal variant="fade-right" duration={800} className="w-full lg:w-80 flex-shrink-0">
+                <div className="flex flex-col gap-3">
+                  {steps.map((s, i) => (
+                    <button
+                      key={s.step}
+                      onClick={() => setActiveStep(i)}
+                      className="flex items-center gap-4 p-4 rounded-2xl text-left transition-all duration-200 w-full"
                       style={
                         activeStep === i
                           ? {
-                              background: "rgba(255,255,255,0.2)",
+                              background:
+                                "linear-gradient(135deg, #1E88E5, #26A69A)",
+                              boxShadow: "0 8px 24px rgba(30,136,229,0.3)",
                               color: "white",
+                              transform: "scale(1.02)",
                             }
-                          : { background: "#F1F5F9", color: "#1E88E5" }
+                          : {
+                              background: "white",
+                              boxShadow: "0 2px 12px rgba(0,0,0,0.05)",
+                              color: "#4B5563",
+                            }
                       }
                     >
-                      {s.icon}
-                    </div>
-                    <div>
-                      <span
-                        className="text-xs font-bold tracking-widest uppercase"
-                        style={{
-                          color:
-                            activeStep === i
-                              ? "rgba(255,255,255,0.7)"
-                              : "#9CA3AF",
-                        }}
+                      <div
+                        className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                        style={
+                          activeStep === i
+                            ? {
+                                background: "rgba(255,255,255,0.2)",
+                                color: "white",
+                              }
+                            : { background: "#F1F5F9", color: "#1E88E5" }
+                        }
                       >
-                        Step {s.step}
-                      </span>
-                      <p
-                        className="font-bold text-sm mt-0.5"
-                        style={{
-                          color: activeStep === i ? "white" : "#1F2937",
-                        }}
-                      >
-                        {s.title}
-                      </p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-
-              {/* Detail panel */}
-              <div
-                className="flex-1 bg-white rounded-3xl p-8 md:p-10 flex flex-col justify-center min-h-64"
-                style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.07)" }}
-              >
-                <div
-                  className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6 text-white"
-                  style={{
-                    background: "linear-gradient(135deg, #1E88E5, #26A69A)",
-                    boxShadow: "0 8px 20px rgba(30,136,229,0.3)",
-                  }}
-                >
-                  {steps[activeStep].icon}
-                </div>
-                <div
-                  className="text-xs font-bold tracking-widest uppercase mb-2"
-                  style={{ color: "#26A69A" }}
-                >
-                  Step {steps[activeStep].step}
-                </div>
-                <h3
-                  className="text-2xl font-extrabold mb-4"
-                  style={{ color: "#0D1B2A" }}
-                >
-                  {steps[activeStep].title}
-                </h3>
-                <p className="text-gray-500 leading-relaxed text-base">
-                  {steps[activeStep].desc}
-                </p>
-                <div className="flex gap-2 mt-8">
-                  {steps.map((_, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setActiveStep(i)}
-                      className="h-1.5 rounded-full transition-all duration-300"
-                      style={{
-                        width: activeStep === i ? "2rem" : "0.5rem",
-                        background: activeStep === i ? "#1E88E5" : "#CBD5E1",
-                      }}
-                    />
+                        {s.icon}
+                      </div>
+                      <div>
+                        <span
+                          className="text-xs font-bold tracking-widest uppercase"
+                          style={{
+                            color:
+                              activeStep === i
+                                ? "rgba(255,255,255,0.7)"
+                                : "#9CA3AF",
+                          }}
+                        >
+                          Step {s.step}
+                        </span>
+                        <p
+                          className="font-bold text-sm mt-0.5"
+                          style={{
+                            color: activeStep === i ? "white" : "#1F2937",
+                          }}
+                        >
+                          {s.title}
+                        </p>
+                      </div>
+                    </button>
                   ))}
                 </div>
-              </div>
+              </ScrollReveal>
+
+              {/* Detail panel */}
+              <ScrollReveal variant="fade-up" duration={800} delay={150} className="flex-1 w-full">
+                <div
+                  className="bg-white rounded-3xl p-8 md:p-10 flex flex-col justify-center min-h-64"
+                  style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.07)" }}
+                >
+                  <div
+                    className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6 text-white"
+                    style={{
+                      background: "linear-gradient(135deg, #1E88E5, #26A69A)",
+                      boxShadow: "0 8px 20px rgba(30,136,229,0.3)",
+                    }}
+                  >
+                    {steps[activeStep].icon}
+                  </div>
+                  <div
+                    className="text-xs font-bold tracking-widest uppercase mb-2"
+                    style={{ color: "#26A69A" }}
+                  >
+                    Step {steps[activeStep].step}
+                  </div>
+                  <h3
+                    className="text-2xl font-extrabold mb-4"
+                    style={{ color: "#0D1B2A" }}
+                  >
+                    {steps[activeStep].title}
+                  </h3>
+                  <p className="text-gray-500 leading-relaxed text-base">
+                    {steps[activeStep].desc}
+                  </p>
+                  <div className="flex gap-2 mt-8">
+                    {steps.map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setActiveStep(i)}
+                        className="h-1.5 rounded-full transition-all duration-300"
+                        style={{
+                          width: activeStep === i ? "2rem" : "0.5rem",
+                          background: activeStep === i ? "#1E88E5" : "#CBD5E1",
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </ScrollReveal>
             </div>
           </Container>
         </section>
@@ -468,79 +484,87 @@ const Home: React.FC = () => {
             <div className="flex flex-col lg:flex-row gap-14 items-center">
               {/* Left: Text */}
               <div className="flex-1">
-                <span
-                  className="inline-block px-4 py-1.5 rounded-full text-xs font-semibold mb-6"
-                  style={{
-                    background: "rgba(30,136,229,0.1)",
-                    color: "#1E88E5",
-                  }}
-                >
-                  About the Project
-                </span>
-                <h2
-                  className="text-3xl md:text-4xl font-extrabold mb-6"
-                  style={{ color: "#0D1B2A", letterSpacing: "-0.75px" }}
-                >
-                  A Graduation Project with{" "}
+                <ScrollReveal variant="fade-right" duration={800}>
                   <span
+                    className="inline-block px-4 py-1.5 rounded-full text-xs font-semibold mb-6"
                     style={{
-                      background: "linear-gradient(120deg, #1E88E5, #26A69A)",
-                      WebkitBackgroundClip: "text",
-                      WebkitTextFillColor: "transparent",
+                      background: "rgba(30,136,229,0.1)",
+                      color: "#1E88E5",
                     }}
                   >
-                    Real Clinical Impact
+                    About the Project
                   </span>
-                </h2>
-                <p className="text-gray-500 leading-relaxed mb-5">
-                  <strong className="text-gray-700">ColonAI</strong> is an
-                  AI-based colon cancer detection system developed as a
-                  graduation project. It leverages state-of-the-art
-                  convolutional neural networks trained on large-scale
-                  colonoscopy datasets to assist clinicians in identifying
-                  suspicious lesions early.
-                </p>
-                <p className="text-gray-500 leading-relaxed mb-8">
-                  Colorectal cancer is the third most common cancer worldwide.
-                  When detected at an early stage, survival rates exceed 90%.
-                  Our system is designed to make that early detection faster,
-                  more accessible, and more reliable — even in resource-limited
-                  settings.
-                </p>
-                <div
-                  className="rounded-2xl p-5 border-l-4 mb-8"
-                  style={{
-                    background: "rgba(30,136,229,0.05)",
-                    borderLeftColor: "#1E88E5",
-                  }}
-                >
-                  <p className="text-sm text-gray-600 italic leading-relaxed">
-                    "Our mission is to bridge the gap between cutting-edge AI
-                    research and clinical practice — making intelligent cancer
-                    detection accessible to every clinician."
+                  <h2
+                    className="text-3xl md:text-4xl font-extrabold mb-6"
+                    style={{ color: "#0D1B2A", letterSpacing: "-0.75px" }}
+                  >
+                    A Graduation Project with{" "}
+                    <span
+                      style={{
+                        background: "linear-gradient(120deg, #1E88E5, #26A69A)",
+                        WebkitBackgroundClip: "text",
+                        WebkitTextFillColor: "transparent",
+                      }}
+                    >
+                      Real Clinical Impact
+                    </span>
+                  </h2>
+                  <p className="text-gray-500 leading-relaxed mb-5">
+                    <strong className="text-gray-700">ColonAI</strong> is an
+                    AI-based colon cancer detection system developed as a
+                    graduation project. It leverages state-of-the-art
+                    convolutional neural networks trained on large-scale
+                    colonoscopy datasets to assist clinicians in identifying
+                    suspicious lesions early.
                   </p>
-                </div>
+                  <p className="text-gray-500 leading-relaxed mb-8">
+                    Colorectal cancer is the third most common cancer worldwide.
+                    When detected at an early stage, survival rates exceed 90%.
+                    Our system is designed to make that early detection faster,
+                    more accessible, and more reliable — even in resource-limited
+                    settings.
+                  </p>
+                  <div
+                    className="rounded-2xl p-5 border-l-4 mb-8"
+                    style={{
+                      background: "rgba(30,136,229,0.05)",
+                      borderLeftColor: "#1E88E5",
+                    }}
+                  >
+                    <p className="text-sm text-gray-600 italic leading-relaxed">
+                      "Our mission is to bridge the gap between cutting-edge AI
+                      research and clinical practice — making intelligent cancer
+                      detection accessible to every clinician."
+                    </p>
+                  </div>
+                </ScrollReveal>
               </div>
 
               {/* Right: Highlights */}
               <div className="flex-1 w-full">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {projectHighlights.map((item, i) => (
-                    <div
+                    <ScrollReveal
                       key={item.label}
-                      className="bg-white rounded-2xl p-5 flex flex-col gap-1 hover:-translate-y-0.5 transition-transform duration-200"
-                      style={{ boxShadow: "0 2px 16px rgba(0,0,0,0.06)" }}
+                      variant="zoom-in"
+                      delay={i * 80}
+                      duration={600}
                     >
-                      <span className="text-xs font-bold uppercase tracking-widest text-gray-400">
-                        {item.label}
-                      </span>
-                      <span
-                        className="text-base font-extrabold"
-                        style={{ color: i % 2 === 0 ? "#1E88E5" : "#26A69A" }}
+                      <div
+                        className="bg-white rounded-2xl p-5 flex flex-col gap-1 hover:-translate-y-0.5 transition-transform duration-200 h-full"
+                        style={{ boxShadow: "0 2px 16px rgba(0,0,0,0.06)" }}
                       >
-                        {item.value}
-                      </span>
-                    </div>
+                        <span className="text-xs font-bold uppercase tracking-widest text-gray-400">
+                          {item.label}
+                        </span>
+                        <span
+                          className="text-base font-extrabold"
+                          style={{ color: i % 2 === 0 ? "#1E88E5" : "#26A69A" }}
+                        >
+                          {item.value}
+                        </span>
+                      </div>
+                    </ScrollReveal>
                   ))}
                 </div>
               </div>

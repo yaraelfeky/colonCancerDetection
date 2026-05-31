@@ -8,6 +8,11 @@
   --transition: 220ms ease-out;
 }
 
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 80px;
+}
+
 * {
   box-sizing: border-box;
 }

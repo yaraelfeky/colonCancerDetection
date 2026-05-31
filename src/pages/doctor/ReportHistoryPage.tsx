@@ -5,6 +5,7 @@ import Container from "../../components/Layout/Container";
 import { loadAllAiReports } from "../../services/aiService";
 import { patientService } from "../../services/patientService";
 import { getAxiosErrorMessage } from "../../utils/axiosError";
+import ScrollReveal from "../../components/ScrollReveal";
 
 interface Patient {
   id: string;
@@ -262,9 +263,9 @@ const ReportHistoryPage: React.FC = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                {filteredReports.map((report) => (
+                {filteredReports.map((report, index) => (
+                  <ScrollReveal key={report.id} variant="fade-up" delay={index * 50}>
                   <article
-                    key={report.id}
                     className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md"
                   >
                     <div className="mb-3 flex items-center justify-between gap-3">
@@ -318,6 +319,7 @@ const ReportHistoryPage: React.FC = () => {
                       </button>
                     </div>
                   </article>
+                  </ScrollReveal>
                 ))}
               </div>
             )}
