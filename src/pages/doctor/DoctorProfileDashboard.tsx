@@ -12,8 +12,8 @@ import type {
   DoctorExperienceDto,
   DoctorProfileDto,
   DoctorReviewDto,
-  DoctorScheduleSlotDto,
 } from "../../types/doctor";
+import ProfileTodayScheduleSection from "../../components/doctor/ProfileTodayScheduleSection";
 import {
   readLocalAvatarDataUrl,
   writeLocalAvatarDataUrl,
@@ -28,8 +28,6 @@ const PRIMARY = "#1E88E5";
 const SECONDARY = "#26A69A";
 const TEXT = "#0D1B2A";
 const BG = "#EEF2F7";
-
-const EN_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 function initialsFrom(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -152,15 +150,6 @@ function BarChartMini({ labels, values }: { labels: string[]; values: number[] }
 
 type TabId = "overview" | "schedule" | "stats" | "reviews" | "management";
 
-const defaultSchedule = (): DoctorScheduleSlotDto[] =>
-  EN_DAYS.map((dayName, dayOfWeek) => ({
-    dayOfWeek,
-    dayName,
-    startTime: "09:00",
-    endTime: "14:00",
-    isAvailable: dayOfWeek !== 5 && dayOfWeek !== 6,
-  }));
-  
 // const isAdmin = isAdminFromJwt(authService.getToken());
 
 const sidebarNav: { id: TabId; label: string; path: string }[] = [
@@ -181,8 +170,6 @@ export default function DoctorProfileDashboard() {
   const [loading, setLoading] = useState(true);
   const [apiProfile, setApiProfile] = useState<DoctorProfileDto | null>(null);
   const [editOpen, setEditOpen] = useState(false);
-  const [scheduleDraft, setScheduleDraft] = useState<DoctorScheduleSlotDto[]>(defaultSchedule);
-  const [savingSchedule, setSavingSchedule] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [profileUiTick, setProfileUiTick] = useState(0);
   const [doctorPatientCount, setDoctorPatientCount] = useState<number | null>(null);
@@ -202,11 +189,6 @@ export default function DoctorProfileDashboard() {
     ]);
     setApiProfile(p);
     setDoctorPatientCount(patients.length);
-    if (p?.schedule?.length) {
-      setScheduleDraft(p.schedule);
-    } else {
-      setScheduleDraft(defaultSchedule());
-    }
     setLoading(false);
   }, []);
 
@@ -284,19 +266,6 @@ export default function DoctorProfileDashboard() {
     ? stats.chartLabels
     : ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
   const chartValues = stats?.chartValues?.length ? stats.chartValues : [12, 19, 15, 22, 18, 24];
-
-  const handleSaveSchedule = async () => {
-    setSavingSchedule(true);
-    setSaveMsg(null);
-    const updated = await doctorService.updateProfile({ schedule: scheduleDraft });
-    if (updated) {
-      setApiProfile(updated);
-      setSaveMsg("Schedule saved.");
-    } else {
-      setSaveMsg("Could not save — check your API route and permissions.");
-    }
-    setSavingSchedule(false);
-  };
 
   const statCards = [
     {
@@ -640,7 +609,7 @@ export default function DoctorProfileDashboard() {
                       </li>
                     </ul>
                     <Link to="/appointments" className="mt-6 inline-flex items-center gap-2 text-sm font-bold no-underline" style={{ color: PRIMARY }}>
-                      Open schedule
+                      View full schedule
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
@@ -736,90 +705,9 @@ export default function DoctorProfileDashboard() {
                 </div>
               )}
 
-              {tab === "schedule" && (
-                <div className="rounded-3xl bg-white p-6 md:p-8 border border-gray-100" style={{ boxShadow: "0 4px 24px rgba(15,23,42,0.05)" }}>
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-                    <div>
-                      <h2 className="text-xl font-extrabold m-0" style={{ color: TEXT }}>
-                        Weekly schedule
-                      </h2>
-                      <p className="text-sm text-gray-500 m-0 mt-1">
-                        Edit working hours and save. Persisted via your profile API.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={savingSchedule}
-                      onClick={() => void handleSaveSchedule()}
-                      className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-60"
-                      style={{ background: PRIMARY }}
-                    >
-                      {savingSchedule ? "Saving…" : "Save schedule"}
-                    </button>
-                  </div>
-                  {saveMsg && (
-                    <p className="text-sm font-semibold mb-4" style={{ color: saveMsg.includes("Could not") ? "#B91C1C" : SECONDARY }}>
-                      {saveMsg}
-                    </p>
-                  )}
-                  <div className="overflow-x-auto rounded-2xl border border-gray-100">
-                    <table className="min-w-full text-sm text-left">
-                      <thead>
-                        <tr className="bg-gray-50">
-                          <th className="px-4 py-3 font-bold text-gray-700">Day</th>
-                          <th className="px-4 py-3 font-bold text-gray-700">From</th>
-                          <th className="px-4 py-3 font-bold text-gray-700">To</th>
-                          <th className="px-4 py-3 font-bold text-gray-700 text-center">Available</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {scheduleDraft.map((row, idx) => (
-                          <tr key={row.dayOfWeek} className="border-t border-gray-100">
-                            <td className="px-4 py-3 font-semibold whitespace-nowrap">{EN_DAYS[row.dayOfWeek] ?? row.dayName}</td>
-                            <td className="px-4 py-2">
-                              <input
-                                type="time"
-                                className="w-full rounded-lg border border-gray-200 px-2 py-1.5"
-                                value={row.startTime}
-                                onChange={(e) => {
-                                  const next = [...scheduleDraft];
-                                  next[idx] = { ...row, startTime: e.target.value };
-                                  setScheduleDraft(next);
-                                }}
-                              />
-                            </td>
-                            <td className="px-4 py-2">
-                              <input
-                                type="time"
-                                className="w-full rounded-lg border border-gray-200 px-2 py-1.5"
-                                value={row.endTime}
-                                onChange={(e) => {
-                                  const next = [...scheduleDraft];
-                                  next[idx] = { ...row, endTime: e.target.value };
-                                  setScheduleDraft(next);
-                                }}
-                              />
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <input
-                                type="checkbox"
-                                className="w-5 h-5"
-                                style={{ accentColor: PRIMARY }}
-                                checked={row.isAvailable !== false}
-                                onChange={(e) => {
-                                  const next = [...scheduleDraft];
-                                  next[idx] = { ...row, isAvailable: e.target.checked };
-                                  setScheduleDraft(next);
-                                }}
-                              />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
+              <div className={tab === "schedule" ? "" : "hidden"} aria-hidden={tab !== "schedule"}>
+                <ProfileTodayScheduleSection />
+              </div>
 
               {tab === "stats" && (
                 <div className="space-y-6">

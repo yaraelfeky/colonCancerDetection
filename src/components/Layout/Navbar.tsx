@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import Container from "./Container";
 import { useAuth } from "../../Context/AuthContext";
 import { useDoctorProfile } from "../../Context/AuthContext";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { authService } from "../../services/authService";
 import { getEffectiveUserRole } from "../../utils/userRole";
 import { readLocalAvatarDataUrl } from "../../utils/localDoctorProfile";
@@ -23,12 +23,23 @@ const navLinks = [
   { label: "Home", href: "/dashboard" },
   { label: "About", href: "/dashboard#about" },
   { label: "Diagnosis", href: "/dashboard#diagnosis" },
-  { label: "Contact", href: "/dashboard#contact" },
+  { label: "Contact", href: "/contact" },
 ];
+
+function isNavLinkActive(pathname: string, hash: string, href: string): boolean {
+  if (href === "/contact") return pathname === "/contact";
+  if (href === "/dashboard") return pathname === "/dashboard" && !hash;
+  if (href.startsWith("/dashboard#")) {
+    const linkHash = href.slice(href.indexOf("#"));
+    return pathname === "/dashboard" && hash === linkHash;
+  }
+  return pathname === href;
+}
 
 const Navbar: React.FC = () => {
   const { logout, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [servicesOpen, setServicesOpen] = useState(false);
@@ -306,15 +317,28 @@ const handleStartDiagnosis = () => {
 
             {/* Desktop nav links */}
             <nav className="hidden md:flex items-center h-full gap-2">
-              {navLinks.map((link) => (
-                <a
-                  key={link.label}
-                  href={link.href === "/dashboard" ? "/dashboard" : link.href}
-                  className="flex items-center px-5 no-underline text-sm font-bold tracking-wide text-white hover:bg-white/15 rounded-md p-2 transition-all duration-150"
-                >
-                  {link.label.toUpperCase()}
-                </a>
-              ))}
+              {navLinks.map((link) => {
+                const active = isNavLinkActive(
+                  location.pathname,
+                  location.hash,
+                  link.href
+                );
+                const className = `flex items-center px-5 no-underline text-sm font-bold tracking-wide text-white rounded-md p-2 transition-all duration-150 ${
+                  active ? "bg-white/25 ring-1 ring-white/30" : "hover:bg-white/15"
+                }`;
+                if (link.href.includes("#")) {
+                  return (
+                    <a key={link.label} href={link.href} className={className}>
+                      {link.label.toUpperCase()}
+                    </a>
+                  );
+                }
+                return (
+                  <Link key={link.label} to={link.href} className={className}>
+                    {link.label.toUpperCase()}
+                  </Link>
+                );
+              })}
 
               {/* Services dropdown */}
               <div 
@@ -439,16 +463,38 @@ const handleStartDiagnosis = () => {
       >
         <Container>
           <div className="flex flex-col py-3 gap-1">
-            {navLinks.map((link) => (
-              <a
-                key={link.label}
-                href={link.href === "/dashboard" ? "/dashboard" : link.href}
-                className="px-4 py-2.5 text-sm font-bold text-white hover:bg-white/15 rounded-lg transition-all"
-                onClick={() => setMenuOpen(false)}
-              >
-                {link.label.toUpperCase()}
-              </a>
-            ))}
+            {navLinks.map((link) => {
+              const active = isNavLinkActive(
+                location.pathname,
+                location.hash,
+                link.href
+              );
+              const className = `px-4 py-2.5 text-sm font-bold text-white rounded-lg transition-all block no-underline ${
+                active ? "bg-white/25" : "hover:bg-white/15"
+              }`;
+              if (link.href.includes("#")) {
+                return (
+                  <a
+                    key={link.label}
+                    href={link.href}
+                    className={className}
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    {link.label.toUpperCase()}
+                  </a>
+                );
+              }
+              return (
+                <Link
+                  key={link.label}
+                  to={link.href}
+                  className={className}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {link.label.toUpperCase()}
+                </Link>
+              );
+            })}
 
             {/* Mobile Services submenu */}
             <div className="mt-2">

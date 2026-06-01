@@ -19,6 +19,7 @@ import { AdminRoute } from "./components/AdminRoute";
 import SettingsPage from "./pages/SettingsPage";
 import MedicalRecordPage from "./pages/medical/MedicalRecordPage";
 import PatientHistoryPage from "./pages/history/PatientHistoryPage";
+import ContactPage from "./pages/Contact/ContactPage";
 
 const App: React.FC = () => {
   return (
@@ -122,6 +123,16 @@ const App: React.FC = () => {
         element={
           <ProtectedRoute>
             <SettingsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/contact"
+        element={
+          <ProtectedRoute>
+            <DoctorRoute>
+              <ContactPage />
+            </DoctorRoute>
           </ProtectedRoute>
         }
       />

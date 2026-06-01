@@ -4,9 +4,13 @@ import type {
   CompleteSlotRequest,
   CreateSlotRequest,
   GenerateSlotsRequest,
+  MyScheduleResponseData,
   ScheduleSlot,
 } from "../types/schedule";
-import { normalizeScheduleSlots } from "../utils/scheduleUtils";
+import {
+  extractScheduleSlotsArray,
+  normalizeScheduleSlots,
+} from "../utils/scheduleUtils";
 import { parseServiceError, unwrapApiDataOrEmpty } from "../utils/apiResponse";
 
 const BASE = "/api/schedule";
@@ -14,8 +18,16 @@ const BASE = "/api/schedule";
 export const scheduleService = {
   async getMySchedule(): Promise<ScheduleSlot[]> {
     try {
-      const { data } = await axiosInstance.get<ApiResponse<unknown[]>>(`${BASE}/my`);
-      return normalizeScheduleSlots(unwrapApiDataOrEmpty(data));
+      const { data: response } = await axiosInstance.get<
+        ApiResponse<MyScheduleResponseData | unknown[]>
+      >(`${BASE}/my`);
+
+      if (!response.success) {
+        throw new Error(response.message || "Failed to load schedule");
+      }
+
+      const rawSlots = extractScheduleSlotsArray(response.data);
+      return normalizeScheduleSlots(rawSlots);
     } catch (error) {
       throw new Error(await parseServiceError(error));
     }
@@ -23,10 +35,13 @@ export const scheduleService = {
 
   async getDaily(date: string): Promise<ScheduleSlot[]> {
     try {
-      const { data } = await axiosInstance.get<ApiResponse<unknown[]>>(
+      const { data: response } = await axiosInstance.get<ApiResponse<unknown>>(
         `${BASE}/my/daily/${date}`
       );
-      return normalizeScheduleSlots(unwrapApiDataOrEmpty(data));
+      if (!response.success) {
+        throw new Error(response.message || "Failed to load daily schedule");
+      }
+      return normalizeScheduleSlots(extractScheduleSlotsArray(response.data));
     } catch (error) {
       throw new Error(await parseServiceError(error));
     }

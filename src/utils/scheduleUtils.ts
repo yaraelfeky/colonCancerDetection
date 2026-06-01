@@ -32,8 +32,29 @@ export function normalizeScheduleSlot(raw: Record<string, unknown>): ScheduleSlo
   };
 }
 
+/**
+ * Extracts slot rows from API `data`:
+ * - `/api/schedule/my` → `{ scheduleId, slots: [...] }`
+ * - daily/weekly may return `data` as a bare array
+ */
+export function extractScheduleSlotsArray(data: unknown): unknown[] {
+  if (Array.isArray(data)) {
+    return data;
+  }
+  if (data && typeof data === "object") {
+    const record = data as Record<string, unknown>;
+    if (Array.isArray(record.slots)) {
+      return record.slots;
+    }
+    if (Array.isArray(record.Slots)) {
+      return record.Slots;
+    }
+  }
+  return [];
+}
+
 export function normalizeScheduleSlots(raw: unknown): ScheduleSlot[] {
-  const list = Array.isArray(raw) ? raw : [];
+  const list = extractScheduleSlotsArray(raw);
   return list
     .map((item) =>
       normalizeScheduleSlot(item && typeof item === "object" ? (item as Record<string, unknown>) : {})

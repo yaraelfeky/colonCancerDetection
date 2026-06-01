@@ -39,3 +39,11 @@ export interface ScheduleStats {
 }
 
 export type ScheduleSortOrder = "newest" | "oldest";
+
+/** GET /api/schedule/my — `data` is an object with a `slots` array, not a bare array. */
+export interface MyScheduleResponseData {
+  scheduleId?: number;
+  doctorId?: number;
+  doctorName?: string;
+  slots?: unknown[];
+}
