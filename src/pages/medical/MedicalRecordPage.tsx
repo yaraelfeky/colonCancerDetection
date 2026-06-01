@@ -17,7 +17,7 @@ import {
   type MedicalRecordSection,
   type MedicalRecordState,
 } from "../../services/medicalRecordService";
-import { patientService } from "../../services/patientService";
+import { patientService, type ListPatient } from "../../services/patientService";
 import { medicationService } from "../../services/medicationService";
 import type { EntryStatus, MedicalEntryBase } from "../../types/medicalRecord";
 import {
@@ -32,11 +32,6 @@ type RecordTab =
   | "tests"
   | "medications"
   | "familyConditions";
-
-interface ListPatient {
-  id: number;
-  name: string;
-}
 
 const TABS: { id: RecordTab; label: string }[] = [
   { id: "allergies", label: "Allergies" },
@@ -85,25 +80,6 @@ function formatDateTime(iso: string): string {
   }
 }
 
-function parsePatients(raw: unknown): ListPatient[] {
-  const list = Array.isArray(raw)
-    ? raw
-    : raw && typeof raw === "object" && Array.isArray((raw as { data?: unknown }).data)
-      ? (raw as { data: unknown[] }).data
-      : [];
-  return list
-    .map((p) => {
-      const row = p as Record<string, unknown>;
-      const id = Number(row.id ?? row.patientId ?? row.PatientId);
-      if (!id) return null;
-      return {
-        id,
-        name: String(row.name ?? row.userName ?? row.patientName ?? `Patient #${id}`),
-      };
-    })
-    .filter((x): x is ListPatient => x !== null);
-}
-
 function asEntryArray<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
 }
@@ -143,6 +119,7 @@ const MedicalRecordPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [patients, setPatients] = useState<ListPatient[]>([]);
   const [patientsLoading, setPatientsLoading] = useState(true);
+  const [patientsError, setPatientsError] = useState<string | null>(null);
   const [patientId, setPatientId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<RecordTab>("allergies");
   const [medical, setMedical] = useState<Required<MedicalRecordState> | null>(null);
@@ -192,12 +169,16 @@ const MedicalRecordPage: React.FC = () => {
     let cancelled = false;
     (async () => {
       setPatientsLoading(true);
+      setPatientsError(null);
       try {
-        const raw = await patientService.getMyPatients();
-        if (!cancelled) setPatients(parsePatients(raw));
+        const list = await patientService.getDoctorPatients();
+        if (!cancelled) setPatients(list);
       } catch (e) {
         console.error(e);
-        if (!cancelled) setPatients([]);
+        if (!cancelled) {
+          setPatients([]);
+          setPatientsError(e instanceof Error ? e.message : "Failed to load patients");
+        }
       } finally {
         if (!cancelled) setPatientsLoading(false);
       }
@@ -848,6 +829,11 @@ const MedicalRecordPage: React.FC = () => {
         </section>
 
         <Container>
+          {patientsError ? (
+            <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              {patientsError}
+            </div>
+          ) : null}
           <div className="mt-6 max-w-md">
             <label htmlFor="mr-patient" className="mb-1 block text-xs font-semibold text-slate-600">
               Patient

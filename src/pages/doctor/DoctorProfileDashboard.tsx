@@ -640,7 +640,7 @@ export default function DoctorProfileDashboard() {
                       </li>
                     </ul>
                     <Link to="/appointments" className="mt-6 inline-flex items-center gap-2 text-sm font-bold no-underline" style={{ color: PRIMARY }}>
-                      Open appointments
+                      Open schedule
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>

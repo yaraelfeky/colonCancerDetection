@@ -31,130 +31,25 @@ import {
   buildPostPayload,
   doctorRequestService,
 } from "../../services/doctorRequestService";
-import { aiService } from "../../services/aiService";
-import { medicalRecordService, type MedicalRecordSection } from "../../services/medicalRecordService";
+import {
+  patientService,
+  formatBloodType,
+  type ListPatient,
+  type PatientDetailProfile,
+} from "../../services/patientService";
+import { aiService, type AiHistoryItem } from "../../services/aiService";
+import { medicalRecordService, type MedicalRecordSection, type MedicalRecordState } from "../../services/medicalRecordService";
 import { medicationService } from "../../services/medicationService";
 import {
   normalizePrescription,
   prescriptionService,
 } from "../../services/prescriptionService";
-import { patientService } from "../../services/patientService";
-import { USE_MOCK } from "../../config/mockFlags";
-import { buildMockPatientList, DEMO_META } from "../../mocks/patientListMock";
-import { getMockPatients } from "../../mocks/medicalRecordMockStore";
-import { medicalRecordMockStore } from "../../mocks/medicalRecordMockStore";
-import { getMockAiHistoryForPatient } from "../../mocks/patientHistoryMockData";
 import {
   countPendingInMedicalRecord,
   isPendingMedicalEntry,
   toMedicalEntryBase,
 } from "../../types/medicalRecord";
-
-const MOCK_PATIENT = {
-  id: 3,
-  name: "Ahmed Mohamed",
-  age: 54,
-  gender: "Male",
-  email: "ahmed@email.com",
-  phone: "01012345678",
-  joinedAt: "2024-01-15",
-};
-
-const MOCK_AI_HISTORY = [
-  {
-    imageId: 1,
-    originalFileName: "scan_jan.jpg",
-    label: "cancerous" as const,
-    probability: 0.947,
-    isCancerous: true,
-    analyzedAt: "2025-01-10T10:30:00Z",
-  },
-  {
-    imageId: 2,
-    originalFileName: "scan_mar.jpg",
-    label: "normal" as const,
-    probability: 0.821,
-    isCancerous: false,
-    analyzedAt: "2025-03-22T14:00:00Z",
-  },
-  {
-    imageId: 3,
-    originalFileName: "scan_may.jpg",
-    label: "cancerous" as const,
-    probability: 0.763,
-    isCancerous: true,
-    analyzedAt: "2025-05-01T09:15:00Z",
-  },
-];
-
-const MOCK_MEDICAL_RECORD = {
-  allergies: [
-    {
-      id: 1,
-      name: "Penicillin",
-      severity: "High",
-      reaction: "Rash",
-      isPending: true,
-    },
-    {
-      id: 2,
-      name: "Pollen",
-      severity: "Low",
-      reaction: "Sneezing",
-      isPending: false,
-    },
-  ],
-  visits: [
-    {
-      id: 1,
-      date: "2025-01-10T10:00:00Z",
-      doctorName: "Dr. Smith",
-      reasonForVisit: "Routine check",
-      diagnosis: "Healthy",
-      treatmentPlan: "None",
-      isPending: false,
-    },
-  ],
-  surgeries: [
-    {
-      id: 1,
-      name: "Appendectomy",
-      date: "2020-06-15T08:00:00Z",
-      outcome: "Successful",
-      isPending: false,
-    },
-  ],
-  tests: [
-    {
-      id: 1,
-      name: "Colonoscopy",
-      date: "2025-01-10T11:00:00Z",
-      result: "Polyp detected",
-      isPending: true,
-    },
-  ],
-  medications: [
-    {
-      id: 1,
-      name: "Aspirin",
-      dosage: "100mg",
-      frequency: "Daily",
-      startDate: "2025-01-01T00:00:00Z",
-      endDate: null as string | null,
-      notes: "After meals",
-      isPending: false,
-    },
-  ],
-  familyConditions: [
-    {
-      id: 1,
-      name: "Colon Cancer",
-      relative: "Father",
-      diagnosisDate: "2010-03-01T00:00:00Z",
-      isPending: true,
-    },
-  ],
-};
+import { USE_MOCK } from "../../config/mockFlags";
 
 const MOCK_REQUESTS = [
   {
@@ -162,8 +57,8 @@ const MOCK_REQUESTS = [
     patientId: 3,
     subject: "Upload recent scan",
     message: "Please upload your latest colonoscopy image.",
-    requestType: 1,
-    importance: 2,
+    requestType: 1 as const,
+    importance: 2 as const,
     createdAt: "2025-05-01T09:00:00Z",
     hasResponse: false,
   },
@@ -172,54 +67,10 @@ const MOCK_REQUESTS = [
     patientId: 3,
     subject: "Medication confirmation",
     message: "Please confirm you are taking Aspirin daily.",
-    requestType: 0,
-    importance: 1,
+    requestType: 1 as const,
+    importance: 1 as const,
     createdAt: "2025-04-15T10:00:00Z",
     hasResponse: true,
-  },
-];
-
-type ListPatient = {
-  id: number;
-  name: string;
-  age: number;
-  gender: string;
-  lastScan: { isCancerous: boolean; analyzedAt: string } | null;
-  pendingReviews: number;
-};
-
-const MOCK_PATIENTS: ListPatient[] = [
-  {
-    id: 3,
-    name: "Ahmed Mohamed",
-    age: 54,
-    gender: "Male",
-    lastScan: { isCancerous: true, analyzedAt: "2025-05-01T09:15:00Z" },
-    pendingReviews: 3,
-  },
-  {
-    id: 2,
-    name: "Sara Ali",
-    age: 38,
-    gender: "Female",
-    lastScan: { isCancerous: false, analyzedAt: "2025-04-10T14:00:00Z" },
-    pendingReviews: 0,
-  },
-  {
-    id: 5,
-    name: "Omar Hassan",
-    age: 61,
-    gender: "Male",
-    lastScan: null,
-    pendingReviews: 1,
-  },
-  {
-    id: 4,
-    name: "Fatima Nour",
-    age: 45,
-    gender: "Female",
-    lastScan: { isCancerous: false, analyzedAt: "2025-03-15T11:00:00Z" },
-    pendingReviews: 2,
   },
 ];
 
@@ -303,6 +154,17 @@ function formatListScanDate(iso: string): string {
   }
 }
 
+function normalizeMedicalRecord(raw: MedicalRecordState): Required<MedicalRecordState> {
+  return {
+    allergies: Array.isArray(raw.allergies) ? raw.allergies : [],
+    visits: Array.isArray(raw.visits) ? raw.visits : [],
+    surgeries: Array.isArray(raw.surgeries) ? raw.surgeries : [],
+    tests: Array.isArray(raw.tests) ? raw.tests : [],
+    medications: Array.isArray(raw.medications) ? raw.medications : [],
+    familyConditions: Array.isArray(raw.familyConditions) ? raw.familyConditions : [],
+  };
+}
+
 export interface PatientDetailPageProps {
   patientId: number;
   onBack?: () => void;
@@ -310,13 +172,16 @@ export interface PatientDetailPageProps {
 
 type TabId = "overview" | "medical" | "ai" | "requests" | "prescriptions";
 
-type MedicalRecordState = typeof MOCK_MEDICAL_RECORD;
-
-type AiHistoryItem = (typeof MOCK_AI_HISTORY)[number];
-
-type DoctorRequestItem = (typeof MOCK_REQUESTS)[number];
-
-type PatientProfile = typeof MOCK_PATIENT;
+interface DoctorRequestItem {
+  id: number;
+  patientId: number;
+  subject: string;
+  message: string;
+  requestType: 1 | 2;
+  importance: 1 | 2 | 3;
+  createdAt: string;
+  hasResponse: boolean;
+}
 
 async function parseError(res: Response): Promise<string> {
   try {
@@ -354,19 +219,13 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
     if (onBack) onBack();
     else navigate(-1);
   }, [onBack, navigate]);
-  const [loading, setLoading] = useState(!USE_MOCK);
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [patient, setPatient] = useState<PatientProfile | null>(
-    USE_MOCK ? { ...MOCK_PATIENT, id: patientId } : null
-  );
-  const [aiHistory, setAiHistory] = useState<AiHistoryItem[]>(USE_MOCK ? [...MOCK_AI_HISTORY] : []);
-  const [medical, setMedical] = useState<MedicalRecordState | null>(
-    USE_MOCK ? (JSON.parse(JSON.stringify(MOCK_MEDICAL_RECORD)) as MedicalRecordState) : null
-  );
-  const [requests, setRequests] = useState<DoctorRequestItem[]>(
-    USE_MOCK ? MOCK_REQUESTS.filter((r) => r.patientId === patientId) : []
-  );
+  const [patient, setPatient] = useState<PatientDetailProfile | null>(null);
+  const [aiHistory, setAiHistory] = useState<AiHistoryItem[]>([]);
+  const [medical, setMedical] = useState<Required<MedicalRecordState> | null>(null);
+  const [requests, setRequests] = useState<DoctorRequestItem[]>([]);
   const [prescriptions, setPrescriptions] = useState<ReturnType<typeof normalizePrescription>[]>([]);
 
   const [openSections, setOpenSections] = useState<Record<MedicalSection, boolean>>({
@@ -414,7 +273,11 @@ const [reqType, setReqType] = useState<1 | 2>(1);
   }, [toast]);
 
   const sortedAi = useMemo(
-    () => [...aiHistory].sort((a, b) => new Date(b.analyzedAt).getTime() - new Date(a.analyzedAt).getTime()),
+    () =>
+      [...aiHistory].sort(
+        (a, b) =>
+          new Date(b.analyzedAt ?? 0).getTime() - new Date(a.analyzedAt ?? 0).getTime()
+      ),
     [aiHistory]
   );
 
@@ -432,53 +295,45 @@ const [reqType, setReqType] = useState<1 | 2>(1);
   }, [latestAi]);
 
   const loadData = useCallback(async () => {
-    if (USE_MOCK) {
-      const mockMeta = getMockPatients().find((p) => p.id === patientId);
-      const demo = DEMO_META[patientId];
-      setPatient({
-        ...MOCK_PATIENT,
-        id: patientId,
-        name: mockMeta?.name ?? `Patient #${patientId}`,
-        age: demo?.age ?? MOCK_PATIENT.age,
-        gender: demo?.gender ?? MOCK_PATIENT.gender,
-      });
-      setAiHistory(getMockAiHistoryForPatient(patientId));
-      const mr = medicalRecordMockStore.getByPatient(patientId);
-      setMedical(JSON.parse(JSON.stringify(mr)) as MedicalRecordState);
-      setRequests(MOCK_REQUESTS.filter((r) => r.patientId === patientId));
-      setLoading(false);
-      setLoadError(null);
-      return;
-    }
-
     setLoading(true);
     setLoadError(null);
 
     try {
-      const [aiData, mrJson, meds, rxList, drList] = await Promise.all([
-        aiService.getPatientHistory(patientId),
-        medicalRecordService.getByPatient(patientId),
-        medicationService.getByPatient(patientId),
-        prescriptionService.getByPatient(patientId),
-        doctorRequestService.list(),
+      const profilePromise = patientService.getPatientDetailProfile(patientId);
+      const aiPromise = aiService.getPatientHistory(patientId);
+      const mrPromise = medicalRecordService.getByPatient(patientId);
+      const medsPromise = medicationService.getByPatient(patientId);
+      const rxPromise = prescriptionService.getByPatient(patientId);
+      const requestsPromise = USE_MOCK
+        ? Promise.resolve(MOCK_REQUESTS.filter((r) => r.patientId === patientId))
+        : doctorRequestService.list().then((drList) =>
+            drList
+              .map((item) => normalizeDoctorRequest(item, patientId))
+              .filter((r) => r.patientId === patientId)
+          );
+
+      const [profile, aiData, mrJson, meds, rxList, requestList] = await Promise.all([
+        profilePromise,
+        aiPromise,
+        mrPromise,
+        medsPromise,
+        rxPromise,
+        requestsPromise,
       ]);
 
-      setPatient({
-        id: patientId,
-        name: `Patient #${patientId}`,
-        age: 0,
-        gender: "—",
-        email: "—",
-        phone: "—",
-        joinedAt: new Date().toISOString(),
-      });
+      if (!profile) {
+        setLoadError("Patient not found in your assigned list.");
+        setPatient(null);
+        setMedical(null);
+        setAiHistory([]);
+        setRequests([]);
+        return;
+      }
+
+      setPatient(profile);
       setAiHistory(aiData);
 
-      // let medicalData = mrJson;
-      let medicalData = mrJson ?? {};
-      // if (Array.isArray(meds) && meds.length) {
-      //   medicalData = { ...medicalData, medications: meds as MedicalRecordState["medications"] };
-      // }
+      let medicalData = normalizeMedicalRecord(mrJson ?? {});
       if (Array.isArray(meds) && meds.length) {
         medicalData = {
           ...medicalData,
@@ -487,12 +342,7 @@ const [reqType, setReqType] = useState<1 | 2>(1);
       }
       setMedical(medicalData);
       setPrescriptions(rxList.map(normalizePrescription));
-
-      setRequests(
-        drList
-          .map((item) => normalizeDoctorRequest(item, patientId))
-          .filter((r) => r.patientId === patientId)
-      );
+      setRequests(requestList);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Failed to load patient");
       setPatient(null);
@@ -520,12 +370,11 @@ const [reqType, setReqType] = useState<1 | 2>(1);
     if (USE_MOCK) {
       setMedical((prev) => {
         if (!prev) return prev;
-        const key = section;
-        const list = [...(prev[key] as { id: number; isPending?: boolean }[])];
+        const list = [...(prev[section] as { id: number; isPending?: boolean; status?: number }[])];
         const idx = list.findIndex((x) => x.id === entryId);
         if (idx === -1) return prev;
         list[idx] = { ...list[idx], isPending: false, status: body.approve ? 1 : 2 };
-        return { ...prev, [key]: list };
+        return { ...prev, [section]: list };
       });
       setToast(body.approve ? "Entry approved." : "Entry rejected.");
       return;
@@ -636,16 +485,13 @@ const [reqType, setReqType] = useState<1 | 2>(1);
     try {
       const mrJson = await medicalRecordService.getByPatient(patientId);
       const meds = await medicationService.getByPatient(patientId);
-      let medicalData = mrJson;
-      // if (Array.isArray(meds) && meds.length) {
-      //   medicalData = { ...medicalData, medications: meds as MedicalRecordState["medications"] };
-      // }
+      let medicalData = normalizeMedicalRecord(mrJson);
       if (Array.isArray(meds) && meds.length) {
-          medicalData = {
-            ...medicalData,
-            medications: meds,
-          };
-        }
+        medicalData = {
+          ...medicalData,
+          medications: meds,
+        };
+      }
       setMedical(medicalData);
     } catch (e) {
       console.error("[refreshMedical] Error:", e);
@@ -828,7 +674,7 @@ const [reqType, setReqType] = useState<1 | 2>(1);
     </button>
   );
 
-  if (loading && !USE_MOCK) {
+  if (loading) {
     return (
       <div className="flex min-h-screen flex-col bg-slate-100">
         <Navbar />
@@ -876,13 +722,19 @@ const [reqType, setReqType] = useState<1 | 2>(1);
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </button>
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-blue-200 bg-blue-50 text-lg font-bold text-blue-700">
-                  {initials(patient.name)}
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-blue-200 bg-blue-50 text-lg font-bold text-blue-700 overflow-hidden">
+                  {patient.imageUrl ? (
+                    <img src={patient.imageUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    initials(patient.name)
+                  )}
                 </div>
                 <div className="min-w-0">
                   <h1 className="truncate text-2xl font-extrabold text-slate-900 md:text-3xl">{patient.name}</h1>
                   <p className="mt-1 text-sm text-slate-500">
-                    {patient.age} · {patient.gender} · Joined {formatDate(patient.joinedAt)}
+                    {patient.gender
+                      ? `${patient.age ?? "—"} · ${patient.gender}${patient.joinedAt ? ` · Joined ${formatDate(patient.joinedAt)}` : ""}`
+                      : `${patient.age != null ? `${patient.age} yrs` : "—"} · Blood type ${formatBloodType(patient.bloodType)}${patient.dateOfBirth ? ` · DOB ${formatDate(patient.dateOfBirth)}` : ""}`}
                   </p>
                 </div>
               </div>
@@ -931,7 +783,7 @@ const [reqType, setReqType] = useState<1 | 2>(1);
         </section>
 
         <Container>
-          {loadError && !USE_MOCK && (
+          {loadError && (
             <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{loadError}</div>
           )}
 
@@ -943,11 +795,11 @@ const [reqType, setReqType] = useState<1 | 2>(1);
                   <div className="mt-4 space-y-3">
                     <div className="flex items-center gap-3 text-slate-700">
                       <Mail className="h-5 w-5 shrink-0 text-blue-600" />
-                      <span className="truncate text-sm">{patient.email}</span>
+                      <span className="truncate text-sm">{patient.email ?? "—"}</span>
                     </div>
                     <div className="flex items-center gap-3 text-slate-700">
                       <Phone className="h-5 w-5 shrink-0 text-blue-600" />
-                      <span className="text-sm">{patient.phone}</span>
+                      <span className="text-sm">{patient.phone ?? "—"}</span>
                     </div>
                   </div>
                 </div>
@@ -983,19 +835,21 @@ const [reqType, setReqType] = useState<1 | 2>(1);
                     >
                       {latestAi.isCancerous ? "Adenocarcinoma" : "Normal"}
                     </span>
-                    <span className="text-xs text-slate-500">{formatDate(latestAi.analyzedAt)}</span>
+                    <span className="text-xs text-slate-500">
+                      {latestAi.analyzedAt ? formatDate(latestAi.analyzedAt) : "—"}
+                    </span>
                   </div>
                   <div className="mt-3">
                     <div className="mb-1 flex justify-between text-xs font-medium text-slate-600">
                       <span>Confidence</span>
-                      <span>{(latestAi.probability * 100).toFixed(1)}%</span>
+                      <span>{((latestAi.probability ?? 0) * 100).toFixed(1)}%</span>
                     </div>
                     <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
                       <div
                         className={`h-full rounded-full transition-all ${
                           latestAi.isCancerous ? "bg-red-500" : "bg-emerald-500"
                         }`}
-                        style={{ width: `${latestAi.probability * 100}%` }}
+                        style={{ width: `${(latestAi.probability ?? 0) * 100}%` }}
                       />
                     </div>
                   </div>
@@ -1206,8 +1060,10 @@ const [reqType, setReqType] = useState<1 | 2>(1);
                   <div key={row.imageId} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
-                        <p className="font-semibold text-slate-900">{row.originalFileName}</p>
-                        <p className="text-xs text-slate-500">{formatDate(row.analyzedAt)}</p>
+                        <p className="font-semibold text-slate-900">{row.originalFileName ?? "Scan"}</p>
+                        <p className="text-xs text-slate-500">
+                          {row.analyzedAt ? formatDate(row.analyzedAt) : "—"}
+                        </p>
                       </div>
                       <span
                         className={`rounded-full border px-3 py-1 text-xs font-semibold ${
@@ -1220,12 +1076,12 @@ const [reqType, setReqType] = useState<1 | 2>(1);
                       </span>
                     </div>
                     <p className="mt-2 text-right text-sm font-bold text-slate-800">
-                      {(row.probability * 100).toFixed(1)}%
+                      {((row.probability ?? 0) * 100).toFixed(1)}%
                     </p>
                     <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-slate-100">
                       <div
                         className={`h-full rounded-full ${row.isCancerous ? "bg-red-500" : "bg-emerald-500"}`}
-                        style={{ width: `${row.probability * 100}%` }}
+                        style={{ width: `${(row.probability ?? 0) * 100}%` }}
                       />
                     </div>
                   </div>
@@ -1433,16 +1289,10 @@ export const PatientsListPage: React.FC = () => {
   const [listError, setListError] = useState<string | null>(null);
 
   const loadList = useCallback(async () => {
-    if (USE_MOCK) {
-      setPatients(buildMockPatientList());
-      setListLoading(false);
-      setListError(null);
-      return;
-    }
-    setListLoading(true);
     setListError(null);
+    if (!USE_MOCK) setListLoading(true);
     try {
-      const list = await patientService.getMyPatients();
+      const list = await patientService.getDoctorPatientsWithSummaries();
       setPatients(list);
     } catch (e) {
       setListError(e instanceof Error ? e.message : "Failed to load patients");
@@ -1456,11 +1306,16 @@ export const PatientsListPage: React.FC = () => {
     void loadList();
   }, [loadList]);
 
-  const filtered = useMemo(
-    () =>
-      patients.filter((p) => p.name.toLowerCase().includes(search.trim().toLowerCase())),
-    [patients, search]
-  );
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return patients;
+    return patients.filter((p) => {
+      const nameMatch = p.name.toLowerCase().includes(q);
+      const emailMatch = p.email?.toLowerCase().includes(q) ?? false;
+      const idMatch = String(p.id).includes(q);
+      return nameMatch || emailMatch || idMatch;
+    });
+  }, [patients, search]);
 
   const viewKey = selectedPatientId === null ? "list" : `patient-${selectedPatientId}`;
 
@@ -1489,10 +1344,16 @@ export const PatientsListPage: React.FC = () => {
                 type="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by name..."
+                placeholder="Search by name, email, or ID..."
                 className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-800 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
               />
             </div>
+
+            {listError ? (
+              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                {listError}
+              </div>
+            ) : null}
 
             {listLoading && !USE_MOCK ? (
               <div className="mt-12 flex justify-center">
@@ -1501,7 +1362,9 @@ export const PatientsListPage: React.FC = () => {
             ) : filtered.length === 0 ? (
               <div className="mt-16 flex flex-col items-center justify-center text-center">
                 <Users className="h-14 w-14 text-slate-300" />
-                <p className="mt-3 text-sm font-medium text-slate-600">No patients found</p>
+                <p className="mt-3 text-sm font-medium text-slate-600">
+                  {patients.length === 0 ? "No patients assigned yet" : "No patients match your search"}
+                </p>
               </div>
             ) : (
               <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -1546,31 +1409,44 @@ export const PatientsListPage: React.FC = () => {
                       className="flex w-full flex-col pr-20 text-left"
                     >
                     <div className="flex items-start gap-3">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-blue-200 bg-blue-50 text-sm font-bold text-blue-700">
-                        {initials(p.name)}
-                      </div>
+                      {p.imageUrl ? (
+                        <img
+                          src={p.imageUrl}
+                          alt=""
+                          className="h-12 w-12 shrink-0 rounded-full border-2 border-blue-200 object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-blue-200 bg-blue-50 text-sm font-bold text-blue-700">
+                          {initials(p.name)}
+                        </div>
+                      )}
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-bold text-slate-900">{p.name}</p>
                         <p className="mt-0.5 text-sm text-slate-500">
-                          {p.age} · {p.gender}
+                          {p.gender
+                            ? `${p.age ?? "—"} · ${p.gender}`
+                            : `${p.age != null ? `${p.age} yrs` : "—"} · Blood type ${formatBloodType(p.bloodType)}`}
                         </p>
+                        {!USE_MOCK && p.email ? (
+                          <p className="mt-0.5 truncate text-xs text-slate-400">{p.email}</p>
+                        ) : null}
                         <div className="mt-3 flex flex-wrap items-center gap-2">
                           <span
                             className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${
-                              p.lastScan === null
+                              !p.lastScan
                                 ? "border-slate-200 bg-slate-100 text-slate-600"
                                 : p.lastScan.isCancerous
                                   ? "border-red-200 bg-red-50 text-red-800"
                                   : "border-emerald-200 bg-emerald-50 text-emerald-800"
                             }`}
                           >
-                            {p.lastScan === null
+                            {!p.lastScan
                               ? "No scans yet"
                               : p.lastScan.isCancerous
                                 ? "Adenocarcinoma"
                                 : "Normal"}
                           </span>
-                          {p.lastScan ? (
+                          {p.lastScan?.analyzedAt ? (
                             <span className="text-xs text-slate-500">
                               {formatListScanDate(p.lastScan.analyzedAt)}
                             </span>

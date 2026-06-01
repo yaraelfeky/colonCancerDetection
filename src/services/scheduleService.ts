@@ -1,63 +1,49 @@
 import { axiosInstance } from "../api/axiosInstance";
 import type { ApiResponse } from "../types/api";
+import type {
+  CompleteSlotRequest,
+  CreateSlotRequest,
+  GenerateSlotsRequest,
+  ScheduleSlot,
+} from "../types/schedule";
+import { normalizeScheduleSlots } from "../utils/scheduleUtils";
 import { parseServiceError, unwrapApiDataOrEmpty } from "../utils/apiResponse";
 
 const BASE = "/api/schedule";
 
-export interface GenerateSlotsDto {
-  startDate: string;
-  endDate: string;
-  startTime: string;
-  endTime: string;
-  slotDurationMinutes: number;
-  daysOfWeek?: number[];
-}
-
-export interface CreateSlotDto {
-  date: string;
-  startTime: string;
-  endTime: string;
-}
-
-export interface CompleteSlotDto {
-  slotId: number;
-  notes?: string;
-}
-
 export const scheduleService = {
-  async getMySchedule(): Promise<unknown[]> {
+  async getMySchedule(): Promise<ScheduleSlot[]> {
     try {
       const { data } = await axiosInstance.get<ApiResponse<unknown[]>>(`${BASE}/my`);
-      return unwrapApiDataOrEmpty(data);
+      return normalizeScheduleSlots(unwrapApiDataOrEmpty(data));
     } catch (error) {
       throw new Error(await parseServiceError(error));
     }
   },
 
-  async getDaily(date: string): Promise<unknown[]> {
+  async getDaily(date: string): Promise<ScheduleSlot[]> {
     try {
       const { data } = await axiosInstance.get<ApiResponse<unknown[]>>(
         `${BASE}/my/daily/${date}`
       );
-      return unwrapApiDataOrEmpty(data);
+      return normalizeScheduleSlots(unwrapApiDataOrEmpty(data));
     } catch (error) {
       throw new Error(await parseServiceError(error));
     }
   },
 
-  async getWeekly(weekStart: string): Promise<unknown[]> {
+  async getWeekly(weekStart: string): Promise<ScheduleSlot[]> {
     try {
       const { data } = await axiosInstance.get<ApiResponse<unknown[]>>(
         `${BASE}/my/weekly/${weekStart}`
       );
-      return unwrapApiDataOrEmpty(data);
+      return normalizeScheduleSlots(unwrapApiDataOrEmpty(data));
     } catch (error) {
       throw new Error(await parseServiceError(error));
     }
   },
 
-  /** POST /api/schedule/slots/generate — bulk-generate time slots */
-  async generateSlots(dto: GenerateSlotsDto): Promise<void> {
+  async generateSlots(dto: GenerateSlotsRequest): Promise<void> {
     try {
       const { data } = await axiosInstance.post<ApiResponse>(`${BASE}/slots/generate`, dto);
       if (!data.success) throw new Error(data.message || "Failed to generate slots");
@@ -66,8 +52,7 @@ export const scheduleService = {
     }
   },
 
-  /** POST /api/schedule/slots — create a single slot */
-  async createSlot(dto: CreateSlotDto): Promise<void> {
+  async createSlot(dto: CreateSlotRequest): Promise<void> {
     try {
       const { data } = await axiosInstance.post<ApiResponse>(`${BASE}/slots`, dto);
       if (!data.success) throw new Error(data.message || "Failed to create slot");
@@ -76,7 +61,6 @@ export const scheduleService = {
     }
   },
 
-  /** DELETE /api/schedule/slots/{slotId} */
   async deleteSlot(slotId: number): Promise<void> {
     try {
       const { data } = await axiosInstance.delete<ApiResponse>(`${BASE}/slots/${slotId}`);
@@ -86,8 +70,7 @@ export const scheduleService = {
     }
   },
 
-  /** PATCH /api/schedule/slots/complete */
-  async completeSlot(dto: CompleteSlotDto): Promise<void> {
+  async completeSlot(dto: CompleteSlotRequest): Promise<void> {
     try {
       const { data } = await axiosInstance.patch<ApiResponse>(`${BASE}/slots/complete`, dto);
       if (!data.success) throw new Error(data.message || "Failed to complete slot");

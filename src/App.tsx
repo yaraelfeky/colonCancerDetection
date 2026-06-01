@@ -10,7 +10,7 @@ import Home from "./pages/Home/Home";
 import { DoctorRoute } from "./components/DoctorRoute";
 import DoctorProfileDashboard from "./pages/doctor/DoctorProfileDashboard";
 import NotificationsPage from "./pages/NotificationsPage";
-import DoctorAppointmentDashboardPage from "./pages/doctor/DoctorAppointmentDashboard";
+import ScheduleManagementPage from "./pages/doctor/ScheduleManagementPage";
 import ReportHistoryPage from "./pages/doctor/ReportHistoryPage";
 import DiagnosisPage from "./pages/doctor/DiagnosisPage";
 import PatientsListPage from "./pages/patient/PatientPage";
@@ -53,7 +53,9 @@ const App: React.FC = () => {
         path="/appointments"
         element={
           <ProtectedRoute>
-            <DoctorAppointmentDashboardPage/>
+            <DoctorRoute>
+              <ScheduleManagementPage />
+            </DoctorRoute>
           </ProtectedRoute>
         }
       />

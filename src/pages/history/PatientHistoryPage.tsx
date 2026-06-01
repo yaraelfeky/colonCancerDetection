@@ -4,18 +4,13 @@ import Navbar from "../../components/Layout/Navbar";
 import Footer from "../../components/Layout/Footer";
 import Container from "../../components/Layout/Container";
 import ScrollReveal from "../../components/ScrollReveal";
-import { Clock, History, ScanLine, Stethoscope } from "lucide-react";
-import { patientService } from "../../services/patientService";
+import { Clock, History, ScanLine, Search, Stethoscope } from "lucide-react";
+import { patientService, type ListPatient } from "../../services/patientService";
 import {
   patientHistoryService,
   type PatientHistoryEvent,
 } from "../../services/patientHistoryService";
 import type { EntryStatus } from "../../types/medicalRecord";
-
-interface ListPatient {
-  id: number;
-  name: string;
-}
 
 const INPUT_CLASS =
   "w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30";
@@ -46,20 +41,6 @@ function formatDateTime(iso: string): string {
   }
 }
 
-function parsePatients(raw: unknown): ListPatient[] {
-  if (Array.isArray(raw)) {
-    return raw
-      .map((p) => {
-        const row = p as Record<string, unknown>;
-        const id = Number(row.id);
-        if (!id) return null;
-        return { id, name: String(row.name ?? `Patient #${id}`) };
-      })
-      .filter((x): x is ListPatient => x !== null);
-  }
-  return [];
-}
-
 function statusLabel(status: EntryStatus | undefined): string {
   if (status === 0) return "Pending";
   if (status === 2) return "Rejected";
@@ -81,10 +62,23 @@ function eventIcon(type: PatientHistoryEvent["type"]) {
   return <History className="h-4 w-4" />;
 }
 
+function filterPatientsBySearch(patients: ListPatient[], query: string): ListPatient[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return patients;
+  return patients.filter((p) => {
+    const nameMatch = p.name.toLowerCase().includes(q);
+    const emailMatch = p.email?.toLowerCase().includes(q) ?? false;
+    const idMatch = String(p.id).includes(q);
+    return nameMatch || emailMatch || idMatch;
+  });
+}
+
 const PatientHistoryPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [patients, setPatients] = useState<ListPatient[]>([]);
   const [patientsLoading, setPatientsLoading] = useState(true);
+  const [patientsError, setPatientsError] = useState<string | null>(null);
+  const [patientSearch, setPatientSearch] = useState("");
   const [patientId, setPatientId] = useState<number | null>(null);
   const [events, setEvents] = useState<PatientHistoryEvent[]>([]);
   const [loading, setLoading] = useState(false);
@@ -94,11 +88,15 @@ const PatientHistoryPage: React.FC = () => {
     let cancelled = false;
     (async () => {
       setPatientsLoading(true);
+      setPatientsError(null);
       try {
-        const raw = await patientService.getMyPatients();
-        if (!cancelled) setPatients(parsePatients(raw));
-      } catch {
-        if (!cancelled) setPatients([]);
+        const list = await patientService.getDoctorPatients();
+        if (!cancelled) setPatients(list);
+      } catch (e) {
+        if (!cancelled) {
+          setPatients([]);
+          setPatientsError(e instanceof Error ? e.message : "Failed to load patients");
+        }
       } finally {
         if (!cancelled) setPatientsLoading(false);
       }
@@ -114,6 +112,11 @@ const PatientHistoryPage: React.FC = () => {
     const id = Number(param);
     if (!Number.isNaN(id) && id > 0) setPatientId(id);
   }, [searchParams]);
+
+  const filteredPatients = useMemo(
+    () => filterPatientsBySearch(patients, patientSearch),
+    [patients, patientSearch]
+  );
 
   const headerPatientName = useMemo(() => {
     const fromUrl = searchParams.get("patientName");
@@ -190,34 +193,61 @@ const PatientHistoryPage: React.FC = () => {
 
         <Container>
           <ScrollReveal variant="fade-up" delay={100}>
-          <div className="mt-6 max-w-md">
-            <label htmlFor="hist-patient" className="mb-1 block text-xs font-semibold text-slate-600">
-              Patient
-            </label>
-            <select
-              id="hist-patient"
-              value={patientId ?? ""}
-              onChange={(e) => {
-                const v = e.target.value;
-                const nextId = v ? Number(v) : null;
-                setPatientId(nextId);
-                const selected = patients.find((p) => p.id === nextId);
-                syncPatientInUrl(nextId, selected?.name);
-              }}
-              disabled={patientsLoading}
-              className={INPUT_CLASS}
-            >
-              <option value="">
-                {patientsLoading ? "Loading patients…" : "Select a patient"}
-              </option>
-              {patients.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
+          <div className="mt-6 max-w-md space-y-4">
+            <div>
+              <label htmlFor="hist-patient-search" className="mb-1 block text-xs font-semibold text-slate-600">
+                Search patients
+              </label>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  id="hist-patient-search"
+                  type="search"
+                  value={patientSearch}
+                  onChange={(e) => setPatientSearch(e.target.value)}
+                  placeholder="Search by name, email, or ID..."
+                  className={`${INPUT_CLASS} pl-10`}
+                />
+              </div>
+            </div>
+            <div>
+              <label htmlFor="hist-patient" className="mb-1 block text-xs font-semibold text-slate-600">
+                Patient
+              </label>
+              <select
+                id="hist-patient"
+                value={patientId ?? ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  const nextId = v ? Number(v) : null;
+                  setPatientId(nextId);
+                  const selected = patients.find((p) => p.id === nextId);
+                  syncPatientInUrl(nextId, selected?.name);
+                }}
+                disabled={patientsLoading}
+                className={INPUT_CLASS}
+              >
+                <option value="">
+                  {patientsLoading ? "Loading patients…" : "Select a patient"}
                 </option>
-              ))}
-            </select>
+                {filteredPatients.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              {!patientsLoading && patientSearch.trim() && filteredPatients.length === 0 ? (
+                <p className="mt-2 text-xs text-slate-500">No patients match your search.</p>
+              ) : null}
+            </div>
           </div>
           </ScrollReveal>
+
+          {patientsError ? (
+            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              {patientsError}
+            </div>
+          ) : null}
 
           {loadError && (
             <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">

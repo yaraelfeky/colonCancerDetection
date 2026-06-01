@@ -102,7 +102,7 @@ const handleStartDiagnosis = () => {
   const services = [
     { label: "Patients", href: "/patient" },
     { label: "Medical Record", href: "/medical-record" },
-    { label: "Appointment", href: "/appointments" },
+    { label: "Schedule", href: "/appointments" },
     { label: "Report History", href: "/reports" },
     ...(isAdmin ? [{ label: "Management", href: "/admin/doctors" }] : [])
   ];
