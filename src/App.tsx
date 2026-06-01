@@ -51,7 +51,7 @@ const App: React.FC = () => {
         }
       />
       <Route
-        path="/appointments"
+        path="/schedule"
         element={
           <ProtectedRoute>
             <DoctorRoute>
