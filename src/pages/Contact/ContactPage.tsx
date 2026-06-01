@@ -3,8 +3,10 @@ import Navbar from "../../components/Layout/Navbar";
 import Footer from "../../components/Layout/Footer";
 import Container from "../../components/Layout/Container";
 import ScrollReveal from "../../components/ScrollReveal";
+import { useAuth, useDoctorProfile } from "../../Context/AuthContext";
 import { useContactManager } from "../../hooks/useContactManager";
 import type { ContactEmail, ContactPhone } from "../../types/contact";
+import { resolveDisplayEmail } from "../../utils/authUser";
 import {
   CheckCircle2,
   Loader2,
@@ -168,10 +170,14 @@ function OtpModal({
 }
 
 const ContactPage: React.FC = () => {
+  const { user } = useAuth();
+  const doctorProfile = useDoctorProfile();
+
   const {
     emails,
     phones,
     stats,
+    initializeAccountContacts,
     requestAddEmail,
     completeVerifyEmail,
     resendEmailOtp,
@@ -219,6 +225,19 @@ const ContactPage: React.FC = () => {
   const showToast = useCallback((message: string, variant: ToastVariant = "success") => {
     setToast({ message, variant });
   }, []);
+
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (seededRef.current) return;
+
+    const email = resolveDisplayEmail(user, doctorProfile?.email);
+    const phoneNumber = doctorProfile?.phoneNumber?.trim() || "";
+
+    if (email || phoneNumber) {
+      initializeAccountContacts({ email, phoneNumber });
+      seededRef.current = true;
+    }
+  }, [user, doctorProfile?.email, doctorProfile?.phoneNumber, initializeAccountContacts]);
 
   useEffect(() => {
     if (!toast) return;

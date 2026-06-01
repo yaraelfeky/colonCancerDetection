@@ -12,6 +12,38 @@ export function useContactManager() {
     [emails, phones]
   );
 
+  const initializeAccountContacts = useCallback(
+    (defaults: { email?: string | null; phoneNumber?: string | null }) => {
+      const email = defaults.email?.trim() || "";
+      const phoneNumber = defaults.phoneNumber?.trim() || "";
+
+      if (email) {
+        setEmails((prev) => {
+          const exists = prev.some((e) => e.email.toLowerCase() === email.toLowerCase());
+          if (exists) return prev;
+          const hasPrimary = prev.some((e) => e.isPrimary);
+          return [
+            { email, isVerified: true, isPrimary: !hasPrimary },
+            ...prev,
+          ];
+        });
+      }
+
+      if (phoneNumber) {
+        setPhones((prev) => {
+          const exists = prev.some((p) => p.phoneNumber === phoneNumber);
+          if (exists) return prev;
+          const hasPrimary = prev.some((p) => p.isPrimary);
+          return [
+            { phoneNumber, isVerified: true, isPrimary: !hasPrimary },
+            ...prev,
+          ];
+        });
+      }
+    },
+    []
+  );
+
   const requestAddEmail = useCallback(async (email: string) => {
     await contactService.addEmail({ email });
   }, []);
@@ -111,6 +143,7 @@ export function useContactManager() {
     emails,
     phones,
     stats,
+    initializeAccountContacts,
     requestAddEmail,
     completeVerifyEmail,
     resendEmailOtp,
