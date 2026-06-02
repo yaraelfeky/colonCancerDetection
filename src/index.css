@@ -347,11 +347,6 @@ body {
   pointer-events: none;
 }
 
-.google-credential-btn-fallback span {
-  font-weight: 700;
-  font-size: 1.1rem;
-}
-
 .google-credential-btn-native {
   position: absolute;
   inset: 0;
