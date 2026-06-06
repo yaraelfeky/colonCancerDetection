@@ -148,7 +148,34 @@ const ReportHistoryPage: React.FC = () => {
     void loadReports();
   }, [loadReports]);
 
-  
+  const downloadReportPdf = (report: Report) => {
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Report ${report.id}</title>
+<style>
+body{font-family:Arial,sans-serif;margin:32px;color:#1a202c;}
+h1{font-size:22px;margin-bottom:4px;}
+.meta{color:#718096;font-size:13px;margin-bottom:24px;}
+.badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600;}
+.completed{background:#d1fae5;color:#065f46;}.pending{background:#fef3c7;color:#92400e;}
+section{margin-bottom:18px;}
+h2{font-size:14px;font-weight:700;color:#374151;margin-bottom:6px;border-bottom:1px solid #e2e8f0;padding-bottom:4px;}
+p{font-size:13px;line-height:1.6;color:#4a5568;margin:0;}
+@media print{body{margin:18px;}}
+</style></head><body>
+<h1>Medical Report — ${report.id}</h1>
+<div class="meta">Patient: <strong>${report.patient.name}</strong> &nbsp;|&nbsp; Date: <strong>${report.date}</strong> &nbsp;|&nbsp; Type: <strong>${report.type}</strong> &nbsp;<span class="badge ${report.status === 'Completed' ? 'completed' : 'pending'}">${report.status}</span></div>
+<section><h2>Summary</h2><p>${report.summary}</p></section>
+<section><h2>Diagnosis</h2><p>${report.diagnosis}</p></section>
+<section><h2>Recommendations</h2><p>${report.recommendations}</p></section>
+<section><h2>Doctor Notes</h2><p>${report.doctorNotes || '—'}</p></section>
+${report.extraInfo ? `<section><h2>Additional Medical Info</h2><p>${report.extraInfo}</p></section>` : ''}
+</body></html>`;
+    const win = window.open('', '_blank');
+    if (!win) { window.alert('Please allow pop-ups to download PDFs.'); return; }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); }, 400);
+  };
 
   const filteredReports = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -310,9 +337,7 @@ const ReportHistoryPage: React.FC = () => {
 
                       <button
                         type="button"
-                        onClick={() =>
-                          window.alert(`Mock download for report ${report.id} (PDF).`)
-                        }
+                        onClick={() => downloadReportPdf(report)}
                         className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
                       >
                         Download PDF
@@ -385,6 +410,15 @@ const ReportHistoryPage: React.FC = () => {
                   {activeReport.extraInfo || "No additional information provided."}
                 </p>
               </div>
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => downloadReportPdf(activeReport)}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+              >
+                Download PDF
+              </button>
             </div>
           </div>
         </div>

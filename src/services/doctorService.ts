@@ -28,8 +28,9 @@ export const doctorService = {
       api = null;
     }
     const local = readLocalProfile();
+    // Merge: local preferences override API (e.g. unsaved field edits),
+    // but DON'T re-persist the merged result — that would make stale local data stick forever.
     const merged = mergeDoctorProfile(api, local);
-    writeLocalProfile(merged); // ضمان حفظ النسخة المدمجة
     return merged;
   },
 

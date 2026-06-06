@@ -300,10 +300,10 @@ const [reqType, setReqType] = useState<1 | 2>(1);
 
     try {
       const profilePromise = patientService.getPatientDetailProfile(patientId);
-      const aiPromise = aiService.getPatientHistory(patientId);
-      const mrPromise = medicalRecordService.getByPatient(patientId);
-      const medsPromise = medicationService.getByPatient(patientId);
-      const rxPromise = prescriptionService.getByPatient(patientId);
+      const aiPromise = aiService.getPatientHistory(patientId).catch(() => [] as AiHistoryItem[]);
+      const mrPromise = medicalRecordService.getByPatient(patientId).catch(() => ({} as MedicalRecordState));
+      const medsPromise = medicationService.getByPatient(patientId).catch(() => [] as unknown[]);
+      const rxPromise = prescriptionService.getByPatient(patientId).catch(() => [] as import("../../services/prescriptionService").PrescriptionDto[]);
       const requestsPromise = USE_MOCK
         ? Promise.resolve(MOCK_REQUESTS.filter((r) => r.patientId === patientId))
         : doctorRequestService.list().then((drList) =>

@@ -24,9 +24,17 @@ export function writeLocalProfile(patch: Partial<DoctorProfileDto>): void {
   notifyDoctorProfileChanged();
 }
 
+export function clearLocalProfile(): void {
+  localStorage.removeItem(LOCAL_PROFILE_KEY);
+  localStorage.removeItem(LOCAL_AVATAR_KEY);
+  notifyDoctorProfileChanged();
+}
+
 export function readLocalAvatarDataUrl(): string | null {
   try {
-    return localStorage.getItem(LOCAL_AVATAR_KEY);
+    const val = localStorage.getItem(LOCAL_AVATAR_KEY);
+    if (!val || val === "REMOVED") return null;
+    return val;
   } catch {
     return null;
   }
@@ -36,9 +44,19 @@ export function writeLocalAvatarDataUrl(dataUrl: string | null): void {
   if (dataUrl) {
     localStorage.setItem(LOCAL_AVATAR_KEY, dataUrl);
   } else {
-    localStorage.removeItem(LOCAL_AVATAR_KEY);
+    // Store sentinel so we know user explicitly removed (vs never set)
+    localStorage.setItem(LOCAL_AVATAR_KEY, "REMOVED");
   }
   notifyDoctorProfileChanged();
+}
+
+/** Returns true if the user has explicitly removed their avatar */
+export function isLocalAvatarRemoved(): boolean {
+  try {
+    return localStorage.getItem(LOCAL_AVATAR_KEY) === "REMOVED";
+  } catch {
+    return false;
+  }
 }
 
 /** Merge API payload with locally saved doctor fields (local wins on conflicts). */
@@ -66,7 +84,7 @@ export function mergeDoctorProfile(
         ? l.yearsOfExperience
         : a.yearsOfExperience,
     isProfileComplete: l.isProfileComplete ?? a.isProfileComplete,
-    profileImageUrl: avatarData || l.profileImageUrl || a.profileImageUrl,
+    profileImageUrl: isLocalAvatarRemoved() ? undefined : (avatarData || l.profileImageUrl || a.profileImageUrl),
     education: l.education !== undefined ? l.education : a.education,
     experience: l.experience !== undefined ? l.experience : a.experience,
     achievements: l.achievements !== undefined ? l.achievements : a.achievements,
