@@ -76,10 +76,7 @@ const HeroSection = () => {
                 <ScrollReveal variant="fade-right" delay={550} duration={800}>
                   <div className="flex flex-wrap items-center gap-5 mt-10 justify-center lg:justify-start">
                     {["95%+ Accuracy", "< 3s Results", "Secure & Private"].map((badge) => (
-                      <span key={badge} className="flex items-center gap-1.5 text-xs font-medium text-gray-300">
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="#26A69A" strokeWidth={2.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
+                      <span key={badge} className="flex items-center text-xs font-medium text-gray-300">
                         {badge}
                       </span>
                     ))}
@@ -116,15 +113,7 @@ const HeroSection = () => {
                         <span className="text-[11px] text-gray-300">CNN Processing · Layer 48/50</span>
                       </div>
                     </div>
-                    <div
-                      className="absolute -top-4 -right-4 flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs font-bold text-white shadow-lg"
-                      style={{ background: "linear-gradient(135deg, #26A69A, #1E88E5)" }}
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                      95% Accuracy
-                    </div>
+
                     <div
                       className="absolute -bottom-4 -left-4 flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs font-bold text-white shadow-lg"
                       style={{ background: "#1E88E5" }}
