@@ -29,10 +29,23 @@ import {
   Calendar,
 } from "lucide-react";
 import ScrollReveal from "../../components/ScrollReveal";
+import { doctorRequestService } from "../../services/doctorRequestService";
+import type {
+  DoctorRequestDto,
+  DoctorRequestDetailData,
+  DoctorRequestResponseDto,
+} from "../../types/doctorRequest";
 import {
-  buildPostPayload,
-  doctorRequestService,
-} from "../../services/doctorRequestService";
+  RequestType,
+  Importance,
+  REQUEST_TYPE_LABELS,
+  IMPORTANCE_LABELS,
+  requestTypeDisplay,
+  importanceDisplay,
+  importanceBadgeClasses,
+  requestTypeToNumeric,
+  importanceToNumeric,
+} from "../../types/doctorRequest";
 import {
   patientService,
   formatBloodType,
@@ -53,28 +66,7 @@ import { countPendingInMedicalRecord,
 import { USE_MOCK } from "../../config/mockFlags";
 import { appointmentService, type AppointmentDto } from "../../services/appointmentService";
 
-const MOCK_REQUESTS = [
-  {
-    id: 1,
-    patientId: 3,
-    subject: "Upload recent scan",
-    message: "Please upload your latest colonoscopy image.",
-    requestType: 1 as const,
-    importance: 2 as const,
-    createdAt: "2025-05-01T09:00:00Z",
-    hasResponse: false,
-  },
-  {
-    id: 2,
-    patientId: 3,
-    subject: "Medication confirmation",
-    message: "Please confirm you are taking Aspirin daily.",
-    requestType: 1 as const,
-    importance: 1 as const,
-    createdAt: "2025-04-15T10:00:00Z",
-    hasResponse: true,
-  },
-];
+
 
 function formatDate(iso: string): string {
   try {
@@ -109,18 +101,7 @@ function initials(name: string): string {
   return (p[0][0] + p[p.length - 1][0]).toUpperCase();
 }
 
-function importanceLabel(v: number): "Low" | "Medium" | "High" {
-  if (v === 3) return "High";
-  if (v === 2) return "Medium";
-  return "Low";
-}
 
-function importanceBadgeClass(v: number): string {
-  const lvl = importanceLabel(v);
-  if (lvl === "High") return "bg-red-100 text-red-800 border-red-200";
-  if (lvl === "Medium") return "bg-amber-100 text-amber-800 border-amber-200";
-  return "bg-slate-100 text-slate-700 border-slate-200";
-}
 
 type MedicalSection =
   | "allergies"
@@ -174,45 +155,7 @@ export interface PatientDetailPageProps {
 
 type TabId = "overview" | "medical" | "ai" | "requests" | "prescriptions" | "appointments";
 
-interface DoctorRequestItem {
-  id: number;
-  patientId: number;
-  subject: string;
-  message: string;
-  requestType: 1 | 2;
-  importance: 1 | 2 | 3;
-  createdAt: string;
-  hasResponse: boolean;
-}
 
-async function parseError(res: Response): Promise<string> {
-  try {
-    const j = (await res.json()) as { message?: string; errors?: string[] };
-    if (Array.isArray(j.errors) && j.errors.length) return j.errors.join(" ");
-    if (typeof j.message === "string") return j.message;
-  } catch {
-    /* ignore */
-  }
-  return res.statusText || "Request failed";
-}
-
-function normalizeDoctorRequest(raw: unknown, fallbackPatientId: number): DoctorRequestItem {
-  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-  const importance = r.importance ?? r.Importance;
-  const requestType = r.requestType ?? r.RequestType;
- const imp = importance === 1 || importance === 2 || importance === 3 ? (importance as 1 | 2 | 3): 2;
-  const type = requestType === 1 || requestType === 2 ? (requestType as 1 | 2) : 1;
-  return {
-    id: Number(r.id ?? r.Id ?? Date.now()),
-    patientId: Number(r.patientId ?? r.PatientId ?? fallbackPatientId),
-    subject: String(r.subject ?? r.Subject ?? ""),
-    message: String(r.message ?? r.Message ?? ""),
-    requestType: type,
-    importance: imp,
-    createdAt: String(r.createdAt ?? r.CreatedAt ?? new Date().toISOString()),
-    hasResponse: Boolean(r.hasResponse ?? r.HasResponse ?? false),
-  };
-}
 
 export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId, onBack }) => {
   const navigate = useNavigate();
@@ -227,9 +170,22 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
   const [patient, setPatient] = useState<PatientDetailProfile | null>(null);
   const [aiHistory, setAiHistory] = useState<AiHistoryItem[]>([]);
   const [medical, setMedical] = useState<Required<MedicalRecordState> | null>(null);
-  const [requests, setRequests] = useState<DoctorRequestItem[]>([]);
+  const [requests, setRequests] = useState<DoctorRequestDto[]>([]);
   const [prescriptions, setPrescriptions] = useState<ReturnType<typeof normalizePrescription>[]>([]);
   const [appointments, setAppointments] = useState<AppointmentDto[]>([]);
+
+  // ── Doctor Request CRUD state ─────────────────────────────────────────
+  const [requestDetailData, setRequestDetailData] = useState<DoctorRequestDetailData | null>(null);
+  const [requestDetailLoading, setRequestDetailLoading] = useState(false);
+  const [editingRequest, setEditingRequest] = useState<DoctorRequestDto | null>(null);
+  const [editSubject, setEditSubject] = useState("");
+  const [editMessage, setEditMessage] = useState("");
+  const [editImportance, setEditImportance] = useState<number>(Importance.Low);
+  const [editType, setEditType] = useState<number>(RequestType.GeneralQuestion);
+  const [editSaving, setEditSaving] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  // ───────────────────────────────────────────────────────────────────────
 
   // ── localStorage helpers for locally-deleted medications ──────────────
   const DELETED_MEDS_KEY = `deleted_medications_patient_${patientId ?? "x"}`;
@@ -242,10 +198,10 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
     }
   }, [DELETED_MEDS_KEY]);
 
-  const filterDeletedMeds = useCallback((meds: any[]): any[] => {
+  const filterDeletedMeds = useCallback((meds: unknown[]): unknown[] => {
     const deletedIds = getDeletedMedIds();
     if (!deletedIds.length) return meds;
-    return meds.filter((m: any) => !deletedIds.includes(Number(m.id)));
+    return meds.filter((m) => !deletedIds.includes(Number((m as Record<string, unknown>).id)));
   }, [getDeletedMedIds]);
   // ───────────────────────────────────────────────────────────────────────
 
@@ -268,8 +224,8 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
   const [requestPanelOpen, setRequestPanelOpen] = useState(false);
   const [reqSubject, setReqSubject] = useState("");
   const [reqMessage, setReqMessage] = useState("");
- const [reqImportance, setReqImportance] = useState<1 | 2 | 3>(1);
-const [reqType, setReqType] = useState<1 | 2>(1);
+  const [reqImportance, setReqImportance] = useState<number>(Importance.Low);
+  const [reqType, setReqType] = useState<number>(RequestType.GeneralQuestion);
   const [reqSending, setReqSending] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -325,13 +281,9 @@ const [reqType, setReqType] = useState<1 | 2>(1);
       const mrPromise = medicalRecordService.getByPatient(patientId).catch(() => ({} as MedicalRecordState));
       const medsPromise = medicationService.getByPatient(patientId).catch(() => [] as unknown[]);
       const rxPromise = prescriptionService.getByPatient(patientId).catch(() => [] as import("../../services/prescriptionService").PrescriptionDto[]);
-      const requestsPromise = USE_MOCK
-        ? Promise.resolve(MOCK_REQUESTS.filter((r) => r.patientId === patientId))
-        : doctorRequestService.list().then((drList) =>
-            drList
-              .map((item) => normalizeDoctorRequest(item, patientId))
-              .filter((r) => r.patientId === patientId)
-          );
+      const requestsPromise = doctorRequestService.list().then((drList) =>
+        drList.filter((r) => String(r.patientId) === String(patientId))
+      ).catch(() => [] as DoctorRequestDto[]);
 
       const [profile, aiData, mrJson, meds, rxList, requestList] = await Promise.all([
         profilePromise,
@@ -461,48 +413,103 @@ const [reqType, setReqType] = useState<1 | 2>(1);
     }
 
     setReqSending(true);
-    
-    const subject = reqSubject.trim();
-    const message = reqMessage.trim();
-    
-    const body = buildPostPayload(
-      patientId,
-      subject,
-      message,
-      reqType,
-      reqImportance
-    );
-  console.log(JSON.stringify(body, null, 2));
-  console.log("reqImportance:", reqImportance);
-  console.log("body:", body);
-  console.log(typeof reqType, reqType);
-  console.log(typeof reqImportance, reqImportance);
+    try {
+      const created = await doctorRequestService.create({
+        patientId: String(patientId),
+        doctorId: "25",
+        subject: reqSubject.trim(),
+        message: reqMessage.trim(),
+        requestType: reqType,
+        importance: reqImportance,
+      });
 
-  try {
-    const created = await doctorRequestService.create(body);
-    const item = normalizeDoctorRequest(created ?? body, patientId);
+      setRequests((prev) => [created, ...prev]);
+      setReqSubject("");
+      setReqMessage("");
+      setReqImportance(Importance.Low);
+      setReqType(RequestType.GeneralQuestion);
+      setRequestPanelOpen(false);
+      setToast("Request sent.");
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : "Send failed");
+    } finally {
+      setReqSending(false);
+    }
+  };
 
-    setRequests((prev) => [item, ...prev]);
-    setReqSubject("");
-    setReqMessage("");
-    setReqImportance(1);
-    setReqType(1);
-    setRequestPanelOpen(false);
-    setToast("Request sent.");
-  } catch (e: any) {
-      console.log("FULL ERROR:", e);
-      console.log("RESPONSE:", e?.response?.data);
+  // ── Detail view ────────────────────────────────────────────────────────
+  const viewRequestDetail = async (id: number) => {
+    setRequestDetailLoading(true);
+    setRequestDetailData(null);
+    try {
+      const detail = await doctorRequestService.getById(id);
+      setRequestDetailData(detail);
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : "Failed to load request details");
+    } finally {
+      setRequestDetailLoading(false);
+    }
+  };
 
-      setToast(
-        e?.response?.data?.message ||
-        JSON.stringify(e?.response?.data) ||
-        "Send failed"
-  );
-}finally {
-    setReqSending(false);
-    console.log("CURRENT IMPORTANCE:", reqImportance);
-  }
-};
+  const closeDetail = () => {
+    setRequestDetailData(null);
+  };
+
+  // ── Edit ────────────────────────────────────────────────────────────────
+  const startEditRequest = (r: DoctorRequestDto) => {
+    setEditingRequest(r);
+    setEditSubject(r.subject);
+    setEditMessage(r.message);
+    setEditImportance(importanceToNumeric(r.importance));
+    setEditType(requestTypeToNumeric(r.requestType));
+  };
+
+  const cancelEdit = () => {
+    setEditingRequest(null);
+  };
+
+  const submitEditRequest = async () => {
+    if (!editingRequest) return;
+    if (!editSubject.trim() || !editMessage.trim()) {
+      setToast("Subject and message are required.");
+      return;
+    }
+    setEditSaving(true);
+    try {
+      const updated = await doctorRequestService.update(editingRequest.id, {
+        patientId: String(patientId),
+        subject: editSubject.trim(),
+        message: editMessage.trim(),
+        requestType: editType,
+        importance: editImportance,
+      });
+      setRequests((prev) =>
+        prev.map((r) => (r.id === editingRequest.id ? updated : r))
+      );
+      setEditingRequest(null);
+      setToast("Request updated.");
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : "Update failed");
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  // ── Delete ──────────────────────────────────────────────────────────────
+  const confirmDeleteRequest = async () => {
+    if (deleteConfirmId === null) return;
+    setDeleteLoading(true);
+    try {
+      await doctorRequestService.remove(deleteConfirmId);
+      setRequests((prev) => prev.filter((r) => r.id !== deleteConfirmId));
+      setDeleteConfirmId(null);
+      setToast("Request deleted.");
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : "Delete failed");
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
 
   const refreshMedical = useCallback(async () => {
     try {
@@ -1119,7 +1126,7 @@ const [reqType, setReqType] = useState<1 | 2>(1);
                 <h2 className="text-lg font-bold text-slate-900">Doctor requests</h2>
                 <button
                   type="button"
-                  onClick={() => setRequestPanelOpen((o) => !o)}
+                  onClick={() => { setRequestPanelOpen((o) => !o); setEditingRequest(null); }}
                   className="inline-flex items-center justify-center gap-2 self-start rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-blue-700"
                 >
                   <Plus className="h-4 w-4" />
@@ -1127,7 +1134,8 @@ const [reqType, setReqType] = useState<1 | 2>(1);
                 </button>
               </div>
 
-              {requestPanelOpen && (
+              {/* ── Create form ─────────────────────────────────────────── */}
+              {requestPanelOpen && !editingRequest && (
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                   <h3 className="font-semibold text-slate-900">New request</h3>
                   <div className="mt-4 space-y-4">
@@ -1160,7 +1168,7 @@ const [reqType, setReqType] = useState<1 | 2>(1);
                     <div>
                       <p className="mb-2 text-xs font-semibold text-slate-600">Importance</p>
                       <div className="flex flex-wrap gap-2">
-                        {([1, 2,3] as const).map((v) => (
+                        {([Importance.Low, Importance.Medium, Importance.High] as const).map((v) => (
                           <button
                             key={v}
                             type="button"
@@ -1171,7 +1179,7 @@ const [reqType, setReqType] = useState<1 | 2>(1);
                                 : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
                             }`}
                           >
-                            {importanceLabel(v)}
+                            {IMPORTANCE_LABELS[v]}
                           </button>
                         ))}
                       </div>
@@ -1179,28 +1187,20 @@ const [reqType, setReqType] = useState<1 | 2>(1);
                     <div>
                       <p className="mb-2 text-xs font-semibold text-slate-600">Request type</p>
                       <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setReqType(1)}
-                          className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                            reqType === 1
-                              ? "border-blue-600 bg-blue-600 text-white"
-                              : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-                          }`}
-                        >
-                          General
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setReqType(2)}
-                          className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                            reqType === 2
-                              ? "border-blue-600 bg-blue-600 text-white"
-                              : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-                          }`}
-                        >
-                          Image upload
-                        </button>
+                        {([RequestType.Prescription, RequestType.MedicalAdvice, RequestType.TestResultsInquiry, RequestType.GeneralQuestion] as const).map((v) => (
+                          <button
+                            key={v}
+                            type="button"
+                            onClick={() => setReqType(v)}
+                            className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                              reqType === v
+                                ? "border-blue-600 bg-blue-600 text-white"
+                                : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                            }`}
+                          >
+                            {REQUEST_TYPE_LABELS[v]}
+                          </button>
+                        ))}
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -1211,7 +1211,7 @@ const [reqType, setReqType] = useState<1 | 2>(1);
                         className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50"
                       >
                         <Send className="h-4 w-4" />
-                        Send
+                        {reqSending ? "Sending…" : "Send"}
                       </button>
                       <button
                         type="button"
@@ -1219,6 +1219,8 @@ const [reqType, setReqType] = useState<1 | 2>(1);
                           setRequestPanelOpen(false);
                           setReqSubject("");
                           setReqMessage("");
+                          setReqImportance(Importance.Low);
+                          setReqType(RequestType.GeneralQuestion);
                         }}
                         className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                       >
@@ -1229,36 +1231,152 @@ const [reqType, setReqType] = useState<1 | 2>(1);
                 </div>
               )}
 
-              <div className="space-y-3">
-                {requests.map((r) => (
-                  <div key={r.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <h3 className="font-bold text-slate-900">{r.subject}</h3>
-                      <span
-                        className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${importanceBadgeClass(
-                          r.importance
-                        )}`}
-                      >
-                        {importanceLabel(r.importance)}
-                      </span>
+              {/* ── Edit form ──────────────────────────────────────────── */}
+              {editingRequest && (
+                <div className="rounded-2xl border border-blue-200 bg-blue-50/30 p-5 shadow-sm">
+                  <h3 className="font-semibold text-slate-900">Edit request #{editingRequest.id}</h3>
+                  <div className="mt-4 space-y-4">
+                    <div>
+                      <label htmlFor="edit-subject" className="mb-1 block text-xs font-semibold text-slate-600">Subject</label>
+                      <input id="edit-subject" type="text" value={editSubject} onChange={(e) => setEditSubject(e.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
                     </div>
-                    <p className="mt-2 line-clamp-2 text-sm text-slate-600">{r.message}</p>
-                    <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500">
-                      <span className="inline-flex items-center gap-1">
-                        <Clock className="h-3.5 w-3.5" />
-                        {formatDateTime(r.createdAt)}
-                      </span>
-                      <span
-                        className={`font-semibold ${
-                          r.hasResponse ? "text-emerald-700" : "text-amber-700"
-                        }`}
-                      >
-                        {r.hasResponse ? "Responded" : "Awaiting response"}
-                      </span>
+                    <div>
+                      <label htmlFor="edit-msg" className="mb-1 block text-xs font-semibold text-slate-600">Message</label>
+                      <textarea id="edit-msg" value={editMessage} onChange={(e) => setEditMessage(e.target.value)} rows={4} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                    </div>
+                    <div>
+                      <p className="mb-2 text-xs font-semibold text-slate-600">Importance</p>
+                      <div className="flex flex-wrap gap-2">
+                        {([Importance.Low, Importance.Medium, Importance.High] as const).map((v) => (
+                          <button key={v} type="button" onClick={() => setEditImportance(v)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${editImportance === v ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"}`}>{IMPORTANCE_LABELS[v]}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="mb-2 text-xs font-semibold text-slate-600">Request type</p>
+                      <div className="flex flex-wrap gap-2">
+                        {([RequestType.Prescription, RequestType.MedicalAdvice, RequestType.TestResultsInquiry, RequestType.GeneralQuestion] as const).map((v) => (
+                          <button key={v} type="button" onClick={() => setEditType(v)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${editType === v ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"}`}>{REQUEST_TYPE_LABELS[v]}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" disabled={editSaving} onClick={() => void submitEditRequest()} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">
+                        {editSaving ? "Saving…" : "Save changes"}
+                      </button>
+                      <button type="button" onClick={cancelEdit} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
+
+              {/* ── Delete confirmation dialog ─────────────────────────── */}
+              {deleteConfirmId !== null && (
+                <div className="rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm">
+                  <h3 className="font-semibold text-red-900">Confirm deletion</h3>
+                  <p className="mt-2 text-sm text-red-800">Are you sure you want to delete this request? This action cannot be undone.</p>
+                  <div className="mt-4 flex gap-2">
+                    <button type="button" disabled={deleteLoading} onClick={() => void confirmDeleteRequest()} className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50">
+                      <Trash2 className="h-4 w-4" />
+                      {deleteLoading ? "Deleting…" : "Delete"}
+                    </button>
+                    <button type="button" onClick={() => setDeleteConfirmId(null)} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Detail view ────────────────────────────────────────── */}
+              {requestDetailLoading && (
+                <div className="flex justify-center py-8">
+                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+                </div>
+              )}
+              {requestDetailData && !requestDetailLoading && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="text-lg font-bold text-slate-900">Request details</h3>
+                    <button type="button" onClick={closeDetail} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">Close</button>
+                  </div>
+                  <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                    <div><span className="font-semibold text-slate-500">Subject</span><p className="mt-0.5 text-slate-900">{requestDetailData.request.subject}</p></div>
+                    <div><span className="font-semibold text-slate-500">Request Type</span><p className="mt-0.5 text-slate-900">{requestTypeDisplay(requestDetailData.request.requestType)}</p></div>
+                    <div><span className="font-semibold text-slate-500">Importance</span><p className="mt-0.5"><span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${importanceBadgeClasses(requestDetailData.request.importance)}`}>{importanceDisplay(requestDetailData.request.importance)}</span></p></div>
+                    <div><span className="font-semibold text-slate-500">Status</span><p className="mt-0.5"><span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${requestDetailData.request.isCompleted ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>{requestDetailData.request.isCompleted ? "Completed" : "Pending"}</span></p></div>
+                    <div><span className="font-semibold text-slate-500">Patient Id</span><p className="mt-0.5 text-slate-900">{requestDetailData.request.patientId}</p></div>
+                    <div><span className="font-semibold text-slate-500">Doctor Id</span><p className="mt-0.5 text-slate-900">{requestDetailData.request.doctorId}</p></div>
+                    <div><span className="font-semibold text-slate-500">Created</span><p className="mt-0.5 text-slate-900">{formatDateTime(requestDetailData.request.createdAt)}</p></div>
+                    <div><span className="font-semibold text-slate-500">Updated</span><p className="mt-0.5 text-slate-900">{formatDateTime(requestDetailData.request.updatedAt)}</p></div>
+                  </div>
+                  <div className="mt-4">
+                    <span className="font-semibold text-slate-500 text-sm">Message</span>
+                    <p className="mt-1 whitespace-pre-wrap rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm text-slate-800">{requestDetailData.request.message}</p>
+                  </div>
+
+                  {/* Responses section */}
+                  <div className="mt-6 border-t border-slate-100 pt-4">
+                    <h4 className="font-semibold text-slate-800">Responses ({requestDetailData.responses.length})</h4>
+                    {requestDetailData.responses.length === 0 ? (
+                      <p className="mt-2 text-sm text-slate-500">No responses yet.</p>
+                    ) : (
+                      <div className="mt-3 space-y-3">
+                        {requestDetailData.responses.map((resp, idx) => (
+                          <div key={resp.id ?? idx} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                            <p className="text-sm text-slate-800">{resp.message}</p>
+                            <p className="mt-2 text-xs text-slate-500">{resp.createdAt ? formatDateTime(resp.createdAt) : ""}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ── Requests list ──────────────────────────────────────── */}
+              {requests.length === 0 && !requestDetailData && (
+                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white py-16 text-center">
+                  <FileText className="h-12 w-12 text-slate-300" />
+                  <p className="mt-3 text-sm font-medium text-slate-600">No requests yet</p>
+                  <p className="mt-1 text-xs text-slate-400">Create a new request to get started</p>
+                </div>
+              )}
+
+              {requests.length > 0 && (
+                <div className="space-y-3">
+                  {requests.map((r) => (
+                    <div key={r.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <h3 className="font-bold text-slate-900">{r.subject}</h3>
+                        <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${importanceBadgeClasses(r.importance)}`}>
+                          {importanceDisplay(r.importance)}
+                        </span>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-600">{requestTypeDisplay(r.requestType)}</span>
+                        <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${r.isCompleted ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+                          {r.isCompleted ? "Completed" : "Pending"}
+                        </span>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                        <span className="inline-flex items-center gap-1">
+                          <Clock className="h-3.5 w-3.5" />
+                          {formatDateTime(r.createdAt)}
+                        </span>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+                        <button type="button" onClick={() => void viewRequestDetail(r.id)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">
+                          <FileText className="h-3.5 w-3.5" /> View
+                        </button>
+                        <button type="button" onClick={() => startEditRequest(r)} className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100">
+                          <PlusCircle className="h-3.5 w-3.5" /> Edit
+                        </button>
+                        <button type="button" onClick={() => setDeleteConfirmId(r.id)} className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100">
+                          <Trash2 className="h-3.5 w-3.5" /> Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

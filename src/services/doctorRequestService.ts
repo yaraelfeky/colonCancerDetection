@@ -1,171 +1,87 @@
+import { AxiosError } from "axios";
 import { axiosInstance } from "../api/axiosInstance";
+import type {
+  DoctorRequestDto,
+  DoctorRequestDetailData,
+  DoctorRequestCreatePayload,
+  DoctorRequestUpdatePayload,
+} from "../types/doctorRequest";
 
 const BASE = "/api/DoctorRequest";
-export function defaultPrescription(): DoctorRequestPrescriptionPayload {
-  return {
-    Name: "N/A",
-    Dosage: "N/A",
-    Frequency: "N/A",
-    StartDate: new Date().toISOString(),
-    DaysOfWeek: [2],
-  };
+
+// ── Error helper ─────────────────────────────────────────────────────────────
+
+function parseAxiosError(error: unknown): string {
+  if (error instanceof AxiosError) {
+    const data = error.response?.data as
+      | { message?: string; title?: string; errors?: Record<string, string[]> }
+      | undefined;
+
+    if (data?.errors) {
+      const msgs = Object.values(data.errors).flat();
+      if (msgs.length) return msgs.join(" ");
+    }
+    if (data?.message) return data.message;
+    if (data?.title) return data.title;
+    return error.message;
+  }
+  if (error instanceof Error) return error.message;
+  return "Request failed";
 }
 
-
-export function buildPostPayload(
-  patientId: number,
-  subject: string,
-  message: string,
-  requestType: 1 | 2,
-  importance: 1 | 2 | 3
-): DoctorRequestPostPayload {
-  return {
-    PatientId: patientId,
-    Subject: subject,
-    Message: message,
-    RequestType: requestType,
-    Importance: importance,
-    Prescription: defaultPrescription(),
-  };
-}
-
-export function buildPutPayload(
-  patientId: number,
-  subject: string,
-  message: string,
-  requestType: 1 | 2,
-  importance: 1 | 2 | 3
-): DoctorRequestPutPayload {
-  return {
-    ...buildPostPayload(
-      patientId,
-      subject,
-      message,
-      requestType,
-      importance
-    ),
-    ImageIdsToRemove: [],
-  };
-}
-
-export type DoctorRequestPrescriptionPayload = {
-  Name: string;
-  Dosage: string;
-  Frequency: string;
-  StartDate: string;
-  DaysOfWeek: number[];
-};
-
-export type DoctorRequestPostPayload = {
-  PatientId: number;
-  Subject: string;
-  Message: string;
-  RequestType: 1 | 2;
-  Importance: 1 | 2 | 3;
-  Prescription: DoctorRequestPrescriptionPayload;
-};
-
-export type DoctorRequestPutPayload =
-  DoctorRequestPostPayload & {
-    ImageIdsToRemove: number[];
-  };
-
-async function parseAxiosError(error: any): Promise<string> {
-  return (
-    error?.response?.data?.message ||
-    error?.response?.data?.title ||
-    error?.message ||
-    "Request failed"
-  );
-}
+// ── Service ──────────────────────────────────────────────────────────────────
 
 export const doctorRequestService = {
-  async list(): Promise<any[]> {
+  /** GET /api/DoctorRequest — list all requests */
+  async list(): Promise<DoctorRequestDto[]> {
     try {
       const { data } = await axiosInstance.get(BASE);
-      return data?.data ?? [];
+      return (data?.data ?? []) as DoctorRequestDto[];
     } catch (error) {
-      throw new Error(await parseAxiosError(error));
+      throw new Error(parseAxiosError(error));
     }
   },
 
-  async getById(id: number): Promise<any> {
+  /** GET /api/DoctorRequest/{id} — get a single request + responses */
+  async getById(id: number): Promise<DoctorRequestDetailData> {
     try {
       const { data } = await axiosInstance.get(`${BASE}/${id}`);
-      return data?.data;
+      return data?.data as DoctorRequestDetailData;
     } catch (error) {
-      throw new Error(await parseAxiosError(error));
-      
+      throw new Error(parseAxiosError(error));
     }
   },
 
-  // async create(payload: DoctorRequestPostPayload): Promise<any> {
-  //   try {
-  //     console.log("CREATE PAYLOAD:", payload);
+  /** POST /api/DoctorRequest — create a new request */
+  async create(payload: DoctorRequestCreatePayload): Promise<DoctorRequestDto> {
+    try {
+      console.log("CREATE PAYLOAD", payload);
+      const { data } = await axiosInstance.post(BASE, payload);
+      return (data?.data ?? data) as DoctorRequestDto;
+    } catch (error) {
+      throw new Error(parseAxiosError(error));
+    }
+  },
 
-  //     const { data } = await axiosInstance.post(BASE, payload);
-
-  //     console.log("CREATE RESPONSE:", data);
-
-  //     return data?.data ?? data;
-  //   } catch (error) {
-  //     console.error("CREATE ERROR:", error);
-  //     throw new Error(await parseAxiosError(error));
-  //   }
-  // },
-
-  async create(payload: DoctorRequestPostPayload): Promise<any> {
-  try {
-    console.log("CREATE PAYLOAD:", payload);
-
-    const form = new URLSearchParams();
-    form.append("PatientId", String(payload.PatientId));
-    form.append("Subject", payload.Subject);
-    form.append("Message", payload.Message);
-    form.append("RequestType", String(payload.RequestType));
-    form.append("Importance", String(payload.Importance));
-    form.append("Prescription.Name", payload.Prescription.Name);
-    form.append("Prescription.Dosage", payload.Prescription.Dosage);
-    form.append("Prescription.Frequency", payload.Prescription.Frequency);
-    form.append("Prescription.StartDate", payload.Prescription.StartDate);
-    payload.Prescription.DaysOfWeek.forEach((day) =>
-      form.append("Prescription.DaysOfWeek", String(day))
-    );
-
-    const { data } = await axiosInstance.post(BASE, form, {
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
-
-    console.log("CREATE RESPONSE:", data);
-    return data?.data ?? data;
-  } catch (error) {
-    console.error("CREATE ERROR:", error);
-    throw new Error(await parseAxiosError(error));
-  }
-},
-
+  /** PUT /api/DoctorRequest/{id} — update an existing request */
   async update(
     id: number,
-    payload: DoctorRequestPutPayload
-  ): Promise<any> {
+    payload: DoctorRequestUpdatePayload
+  ): Promise<DoctorRequestDto> {
     try {
-      const { data } = await axiosInstance.put(
-        `${BASE}/${id}`,
-        payload
-      );
-
-      return data?.data ?? data;
+      const { data } = await axiosInstance.put(`${BASE}/${id}`, payload);
+      return (data?.data ?? data) as DoctorRequestDto;
     } catch (error) {
-      throw new Error(await parseAxiosError(error));
+      throw new Error(parseAxiosError(error));
     }
   },
 
+  /** DELETE /api/DoctorRequest/{id} — soft-delete a request */
   async remove(id: number): Promise<void> {
     try {
       await axiosInstance.delete(`${BASE}/${id}`);
     } catch (error) {
-      throw new Error(await parseAxiosError(error));
+      throw new Error(parseAxiosError(error));
     }
   },
-
- };
+};
