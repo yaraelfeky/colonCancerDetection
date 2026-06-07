@@ -11,6 +11,13 @@ export interface NotificationDto {
   read?: boolean;
   createdAt?: string;
   type?: string;
+  // Appointment booking fields
+  appointmentId?: number;
+  slotId?: number;
+  patientId?: number;
+  patientName?: string;
+  appointmentDate?: string;
+  appointmentTime?: string;
 }
 
 export interface UnreadCountDto {

@@ -30,4 +30,12 @@ export const medicationService = {
       throw new Error(await parseServiceError(error));
     }
   },
+
+  async deleteMedication(medicationId: number): Promise<void> {
+    try {
+      await axiosInstance.delete(`${BASE}/${medicationId}`);
+    } catch (error) {
+      throw new Error(await parseServiceError(error));
+    }
+  },
 };

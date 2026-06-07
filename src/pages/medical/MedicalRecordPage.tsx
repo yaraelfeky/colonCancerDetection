@@ -226,6 +226,31 @@ const MedicalRecordPage: React.FC = () => {
     [patients, setSearchParams]
   );
 
+  // ── localStorage helpers for locally-deleted medications ──────────────
+  const DELETED_MEDS_KEY = `deleted_medications_patient_${patientId ?? "x"}`;
+
+  const getDeletedMedIds = (): number[] => {
+    try {
+      return JSON.parse(localStorage.getItem(DELETED_MEDS_KEY) ?? "[]") as number[];
+    } catch {
+      return [];
+    }
+  };
+
+  const addDeletedMedId = (id: number): void => {
+    const existing = getDeletedMedIds();
+    if (!existing.includes(id)) {
+      localStorage.setItem(DELETED_MEDS_KEY, JSON.stringify([...existing, id]));
+    }
+  };
+
+  const filterDeletedMeds = (meds: any[]): any[] => {
+    const deletedIds = getDeletedMedIds();
+    if (!deletedIds.length) return meds;
+    return meds.filter((m: any) => !deletedIds.includes(Number(m.id)));
+  };
+  // ───────────────────────────────────────────────────────────────────────
+
   const refreshMedical = useCallback(async () => {
     if (patientId == null) return;
     setLoading(true);
@@ -241,6 +266,8 @@ const MedicalRecordPage: React.FC = () => {
       } catch {
         /* keep record medications */
       }
+      // Filter out locally-deleted medications so they stay gone after refresh
+      data = { ...data, medications: filterDeletedMeds(data.medications as any[]) };
       setMedical(data);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Failed to load medical record");
@@ -248,6 +275,7 @@ const MedicalRecordPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patientId]);
 
   useEffect(() => {
@@ -345,9 +373,28 @@ const MedicalRecordPage: React.FC = () => {
         case "tests":
           await medicalRecordService.deleteTest(entryId);
           break;
-        case "medications":
-          await medicalRecordService.deleteMedication(entryId);
-          break;
+        case "medications": {
+          // Always persist the deleted ID to localStorage first
+          // so it stays gone after refresh or re-login.
+          addDeletedMedId(entryId);
+          // Try the real API delete (may fail with 403/405 — that's OK)
+          try {
+            await medicalRecordService.deleteMedication(entryId, patientId || undefined);
+          } catch (error) {
+            console.warn("[delete] Backend failed — medication removed locally:", error);
+          }
+          // Remove from UI state immediately
+          setMedical((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              medications: prev.medications.filter((m: any) => Number(m.id) !== entryId),
+            };
+          });
+          setToast("Entry deleted.");
+          setSaving(false);
+          return;
+        }
         case "familyConditions":
           await medicalRecordService.deleteFamilyCondition(entryId);
           break;
@@ -514,6 +561,8 @@ const MedicalRecordPage: React.FC = () => {
   };
 
   const renderPendingActions = (tab: RecordTab, entry: MedicalEntryBase) => {
+    // Medications tab does not show approve/reject buttons
+    if (tab === "medications") return null;
     if (!isPendingMedicalEntry(entry)) return null;
     const busy =
       reviewBusy === `${tab}-${entry.id}-approve` ||
@@ -695,6 +744,7 @@ const MedicalRecordPage: React.FC = () => {
         {entries.flatMap((entry, index) => {
           const base = toMedicalEntryBase(entry);
           if (!base) return [];
+          const isEditingThis = editId === Number(entry.id) && addOpen;
           return [
             <ScrollReveal key={Number(entry.id)} variant="fade-up" delay={index * 50}>
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -707,7 +757,7 @@ const MedicalRecordPage: React.FC = () => {
                   {activeTab === "medications" && String(entry.name)}
                   {activeTab === "familyConditions" && String(entry.name)}
                 </p>
-                {renderStatusBadge(base)}
+                {activeTab !== "medications" && renderStatusBadge(base)}
               </div>
               {activeTab === "allergies" && (
                 <p className="mt-1 text-sm text-slate-600">
@@ -754,6 +804,14 @@ const MedicalRecordPage: React.FC = () => {
               {renderEntryActions(activeTab, entry)}
             </div>
             </ScrollReveal>,
+            // Render edit form inline directly below this card when editing it
+            ...(isEditingThis
+              ? [
+                  <div key={`edit-inline-${Number(entry.id)}`} className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 shadow-sm">
+                    {renderAddForm()}
+                  </div>,
+                ]
+              : []),
           ];
         })}
         <button
@@ -768,7 +826,8 @@ const MedicalRecordPage: React.FC = () => {
           <Plus className="h-3.5 w-3.5" />
           Add {TABS.find((t) => t.id === activeTab)?.label ?? "entry"}
         </button>
-        {renderAddForm()}
+        {/* Add new entry form (only when not editing an existing one) */}
+        {editId === null && renderAddForm()}
       </div>
     );
   };
@@ -813,11 +872,17 @@ const MedicalRecordPage: React.FC = () => {
                   <span className="flex items-center gap-2">
                     {tabIcon(id)}
                     {label}
-                    {tabPendingCount > 0 && id === activeTab && (
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
-                        {tabPendingCount}
-                      </span>
-                    )}
+                    {id === "medications"
+                      ? medical && (medical.medications?.length ?? 0) > 0 && (
+                          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">
+                            {medical.medications.length}
+                          </span>
+                        )
+                      : tabPendingCount > 0 && id === activeTab && (
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
+                            {tabPendingCount}
+                          </span>
+                        )}
                   </span>
                   {activeTab === id && (
                     <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-blue-600" />

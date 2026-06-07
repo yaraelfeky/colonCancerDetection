@@ -24,7 +24,9 @@ import {
   HeartPulse,
   User,
   PlusCircle,
-  Activity
+  Activity,
+  CalendarCheck,
+  Calendar,
 } from "lucide-react";
 import ScrollReveal from "../../components/ScrollReveal";
 import {
@@ -44,12 +46,12 @@ import {
   normalizePrescription,
   prescriptionService,
 } from "../../services/prescriptionService";
-import {
-  countPendingInMedicalRecord,
+import { countPendingInMedicalRecord,
   isPendingMedicalEntry,
   toMedicalEntryBase,
 } from "../../types/medicalRecord";
 import { USE_MOCK } from "../../config/mockFlags";
+import { appointmentService, type AppointmentDto } from "../../services/appointmentService";
 
 const MOCK_REQUESTS = [
   {
@@ -170,7 +172,7 @@ export interface PatientDetailPageProps {
   onBack?: () => void;
 }
 
-type TabId = "overview" | "medical" | "ai" | "requests" | "prescriptions";
+type TabId = "overview" | "medical" | "ai" | "requests" | "prescriptions" | "appointments";
 
 interface DoctorRequestItem {
   id: number;
@@ -227,6 +229,7 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
   const [medical, setMedical] = useState<Required<MedicalRecordState> | null>(null);
   const [requests, setRequests] = useState<DoctorRequestItem[]>([]);
   const [prescriptions, setPrescriptions] = useState<ReturnType<typeof normalizePrescription>[]>([]);
+  const [appointments, setAppointments] = useState<AppointmentDto[]>([]);
 
   const [openSections, setOpenSections] = useState<Record<MedicalSection, boolean>>({
     allergies: true,
@@ -321,6 +324,10 @@ const [reqType, setReqType] = useState<1 | 2>(1);
         requestsPromise,
       ]);
 
+      // Load doctor appointments for this patient
+      const allAppts = await appointmentService.getDoctorAppointments().catch(() => [] as AppointmentDto[]);
+      const patientAppts = allAppts.filter(a => a.patientId === patientId || a.patientName?.toLowerCase() === profile?.name?.toLowerCase());
+
       if (!profile) {
         setLoadError("Patient not found in your assigned list.");
         setPatient(null);
@@ -343,6 +350,7 @@ const [reqType, setReqType] = useState<1 | 2>(1);
       setMedical(medicalData);
       setPrescriptions(rxList.map(normalizePrescription));
       setRequests(requestList);
+      setAppointments(patientAppts);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Failed to load patient");
       setPatient(null);
@@ -390,7 +398,7 @@ const [reqType, setReqType] = useState<1 | 2>(1);
       });
       setMedical((prev) => {
         if (!prev) return prev;
-        const arr = [...(prev[section] as { id: number; isPending?: boolean }[])];
+        const arr = [...(prev[section] as any[])];
         const i = arr.findIndex((x) => x.id === entryId);
         if (i === -1) return prev;
         arr[i] = {
@@ -587,6 +595,8 @@ const [reqType, setReqType] = useState<1 | 2>(1);
   };
 
   const renderPendingActions = (section: MedicalSection, id: number, isPending: boolean) => {
+    // Medications section does not show approve/reject buttons
+    if (section === "medications") return null;
     if (!isPending) return null;
     const busyKey = `${section}-${id}-`;
     const busy = reviewBusy === `${busyKey}true` || reviewBusy === `${busyKey}false`;
@@ -755,6 +765,7 @@ const [reqType, setReqType] = useState<1 | 2>(1);
                   ["ai", "AI History"],
                   ["requests", "Requests"],
                   ["prescriptions", "Prescriptions"],
+                  ["appointments", "Appointments"],
                 ] as const
               ).map(([id, label]) => (
                 <button
@@ -871,7 +882,7 @@ const [reqType, setReqType] = useState<1 | 2>(1);
                 {sectionHeader("allergies", "Allergies", <XCircle className="h-4 w-4" />, medical.allergies.length)}
                 {openSections.allergies && (
                   <div className="space-y-2 pl-0 md:pl-2">
-                    {medical.allergies.map((a) => (
+                    {medical.allergies.map((a: any) => (
                       <div key={a.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                         <p className="font-semibold text-slate-900">{a.name}</p>
                         <p className="mt-1 text-sm text-slate-600">
@@ -897,7 +908,7 @@ const [reqType, setReqType] = useState<1 | 2>(1);
                 {sectionHeader("visits", "Visits", <Clock className="h-4 w-4" />, medical.visits.length)}
                 {openSections.visits && (
                   <div className="space-y-2 md:pl-2">
-                    {medical.visits.map((v) => (
+                    {medical.visits.map((v: any) => (
                       <div key={v.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                         <p className="font-semibold text-slate-900">{formatDateTime(v.date)}</p>
                         <p className="text-sm text-slate-600">{v.doctorName}</p>
@@ -926,7 +937,7 @@ const [reqType, setReqType] = useState<1 | 2>(1);
                 {sectionHeader("surgeries", "Surgeries", <Plus className="h-4 w-4" />, medical.surgeries.length)}
                 {openSections.surgeries && (
                   <div className="space-y-2 md:pl-2">
-                    {medical.surgeries.map((s) => (
+                    {medical.surgeries.map((s: any) => (
                       <div key={s.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                         <p className="font-semibold text-slate-900">{s.name}</p>
                         <p className="mt-1 text-sm text-slate-600">
@@ -952,7 +963,7 @@ const [reqType, setReqType] = useState<1 | 2>(1);
                 {sectionHeader("tests", "Tests", <ScanLine className="h-4 w-4" />, medical.tests.length)}
                 {openSections.tests && (
                   <div className="space-y-2 md:pl-2">
-                    {medical.tests.map((t) => (
+                    {medical.tests.map((t: any) => (
                       <div key={t.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                         <p className="font-semibold text-slate-900">{t.name}</p>
                         <p className="mt-1 text-sm text-slate-600">
@@ -983,7 +994,7 @@ const [reqType, setReqType] = useState<1 | 2>(1);
                 )}
                 {openSections.medications && (
                   <div className="space-y-2 md:pl-2">
-                    {medical.medications.map((m) => (
+                    {medical.medications.map((m: any) => (
                       <div key={m.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                         <p className="font-semibold text-slate-900">{m.name}</p>
                         <p className="mt-1 text-sm text-slate-600">
@@ -1024,7 +1035,7 @@ const [reqType, setReqType] = useState<1 | 2>(1);
                 )}
                 {openSections.familyConditions && (
                   <div className="space-y-2 md:pl-2">
-                    {medical.familyConditions.map((f) => (
+                    {medical.familyConditions.map((f: any) => (
                       <div key={f.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                         <p className="font-semibold text-slate-900">{f.name}</p>
                         <p className="mt-1 text-sm text-slate-600">
@@ -1262,6 +1273,113 @@ const [reqType, setReqType] = useState<1 | 2>(1);
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab === "appointments" && (
+            <div className="mt-6 space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-lg font-bold text-slate-900">Appointments</h2>
+                <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+                  {appointments.length}
+                </span>
+              </div>
+              {appointments.length === 0 ? (
+                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white py-16 text-center">
+                  <Calendar className="h-12 w-12 text-slate-300" />
+                  <p className="mt-3 text-sm font-medium text-slate-600">No appointments on record</p>
+                  <p className="mt-1 text-xs text-slate-400">Appointments approved from booking requests will appear here</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {appointments
+                    .slice()
+                    .sort((a, b) => {
+                      const da = new Date((a.date ?? a.startTime ?? "")).getTime();
+                      const db = new Date((b.date ?? b.startTime ?? "")).getTime();
+                      return db - da;
+                    })
+                    .map((appt) => {
+                      const status = (appt.status ?? "").toLowerCase();
+                      const statusBadge =
+                        status === "confirmed" || status === "approved"
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                          : status === "cancelled" || status === "rejected"
+                          ? "border-red-200 bg-red-50 text-red-800"
+                          : "border-amber-200 bg-amber-50 text-amber-800";
+                      const dateStr = appt.date
+                        ? appt.date.includes("T")
+                          ? appt.date.split("T")[0]
+                          : appt.date
+                        : appt.startTime
+                        ? appt.startTime.split("T")[0]
+                        : "—";
+                      const timeStr = appt.startTime
+                        ? appt.startTime.includes("T")
+                          ? appt.startTime.split("T")[1]?.slice(0, 5)
+                          : appt.startTime.slice(0, 5)
+                        : appt.time?.slice(0, 5) ?? "";
+
+                      return (
+                        <div
+                          key={appt.id ?? appt.slotId}
+                          className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                                <CalendarCheck className="h-5 w-5" />
+                              </div>
+                              <div>
+                                <p className="font-semibold text-slate-900">
+                                  {dateStr !== "—"
+                                    ? new Date(dateStr).toLocaleDateString(undefined, {
+                                        weekday: "long",
+                                        year: "numeric",
+                                        month: "long",
+                                        day: "numeric",
+                                      })
+                                    : "—"}
+                                </p>
+                                {timeStr && (
+                                  <p className="mt-0.5 text-sm text-slate-600 flex items-center gap-1">
+                                    <Clock className="h-3.5 w-3.5" />
+                                    {timeStr}
+                                    {appt.endTime && (
+                                      <> — {appt.endTime.includes("T") ? appt.endTime.split("T")[1]?.slice(0, 5) : appt.endTime.slice(0, 5)}</>
+                                    )}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <span className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${statusBadge}`}>
+                              {appt.status ?? "Pending"}
+                            </span>
+                          </div>
+                          {(appt.serviceType || appt.patientNotes || appt.doctorNotes) && (
+                            <div className="mt-3 space-y-1.5 border-t border-slate-100 pt-3">
+                              {appt.serviceType && (
+                                <p className="text-sm text-slate-600">
+                                  <strong>Service:</strong> {appt.serviceType}
+                                </p>
+                              )}
+                              {appt.patientNotes && (
+                                <p className="text-sm text-slate-600">
+                                  <strong>Patient notes:</strong> {appt.patientNotes}
+                                </p>
+                              )}
+                              {appt.doctorNotes && (
+                                <p className="text-sm text-slate-600">
+                                  <strong>Doctor notes:</strong> {appt.doctorNotes}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                 </div>
               )}
             </div>

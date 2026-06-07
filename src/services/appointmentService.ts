@@ -85,6 +85,49 @@ export const appointmentService = {
       throw new Error(await parseServiceError(error));
     }
   },
+
+  async getDoctorAppointments(): Promise<AppointmentDto[]> {
+    try {
+      const { data } = await axiosInstance.get<ApiResponse<AppointmentDto[]>>(`${BASE}/doctor`);
+      return unwrapApiDataOrEmpty(data);
+    } catch (error) {
+      throw new Error(await parseServiceError(error));
+    }
+  },
+
+  async getPendingForDoctor(): Promise<AppointmentDto[]> {
+    try {
+      const { data } = await axiosInstance.get<ApiResponse<AppointmentDto[]>>(`${BASE}/doctor/pending`);
+      return unwrapApiDataOrEmpty(data);
+    } catch (error) {
+      // If endpoint doesn't exist, fall back to getting all and filtering
+      try {
+        const { data: allData } = await axiosInstance.get<ApiResponse<AppointmentDto[]>>(`${BASE}/doctor`);
+        const all = unwrapApiDataOrEmpty(allData);
+        return all.filter(a => (a.status ?? "").toLowerCase() === "pending");
+      } catch {
+        throw new Error(await parseServiceError(error));
+      }
+    }
+  },
+
+  async approveAppointment(appointmentId: number): Promise<void> {
+    try {
+      const { data } = await axiosInstance.patch<ApiResponse>(`${BASE}/${appointmentId}/approve`);
+      if (!data.success) throw new Error(data.message || "Approve failed");
+    } catch (error) {
+      throw new Error(await parseServiceError(error));
+    }
+  },
+
+  async rejectAppointment(appointmentId: number, reason?: string): Promise<void> {
+    try {
+      const { data } = await axiosInstance.patch<ApiResponse>(`${BASE}/${appointmentId}/reject`, { reason: reason ?? "" });
+      if (!data.success) throw new Error(data.message || "Reject failed");
+    } catch (error) {
+      throw new Error(await parseServiceError(error));
+    }
+  },
 };
 
 export function normalizeAppointment(a: AppointmentDto) {

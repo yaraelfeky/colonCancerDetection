@@ -331,14 +331,38 @@ export const medicalRecordService = {
     );
   },
 
-  async deleteMedication(entryId: number): Promise<void> {
+  async deleteMedication(entryId: number, patientId?: number): Promise<void> {
     if (USE_MOCK) {
       medicalRecordMockStore.deleteMedication(entryId);
       return;
     }
-    await apiRequest(undefined, () =>
-      axiosInstance.delete<ApiResponse>(`${BASE}/medications/${entryId}`)
-    );
+
+    const urls = [
+      { method: "DELETE", url: `${BASE}/medications/${entryId}` },
+      { method: "DELETE", url: `${BASE}/medication/${entryId}` },
+      ...(patientId != null ? [{ method: "DELETE", url: `${BASE}/${patientId}/medications/${entryId}` }] : []),
+      { method: "DELETE", url: `/api/medications/${entryId}` }
+    ];
+
+    let lastError: any = null;
+    for (const item of urls) {
+      try {
+        console.log(`[deleteMedication] Probing: ${item.method} ${item.url}`);
+        await axiosInstance.request({
+          method: item.method,
+          url: item.url
+        });
+        console.log(`[deleteMedication] Success: ${item.method} ${item.url}`);
+        return;
+      } catch (err: any) {
+        lastError = err;
+        const status = err?.response?.status;
+        const msg = err?.response?.data?.message || err?.message;
+        console.warn(`[deleteMedication] Failed: ${item.method} ${item.url} -> Status ${status}: ${msg}`);
+      }
+    }
+
+    throw new Error(await parseServiceError(lastError));
   },
 
   async deleteFamilyCondition(entryId: number): Promise<void> {
