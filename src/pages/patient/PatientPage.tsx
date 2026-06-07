@@ -231,6 +231,24 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
   const [prescriptions, setPrescriptions] = useState<ReturnType<typeof normalizePrescription>[]>([]);
   const [appointments, setAppointments] = useState<AppointmentDto[]>([]);
 
+  // ── localStorage helpers for locally-deleted medications ──────────────
+  const DELETED_MEDS_KEY = `deleted_medications_patient_${patientId ?? "x"}`;
+
+  const getDeletedMedIds = useCallback((): number[] => {
+    try {
+      return JSON.parse(localStorage.getItem(DELETED_MEDS_KEY) ?? "[]") as number[];
+    } catch {
+      return [];
+    }
+  }, [DELETED_MEDS_KEY]);
+
+  const filterDeletedMeds = useCallback((meds: any[]): any[] => {
+    const deletedIds = getDeletedMedIds();
+    if (!deletedIds.length) return meds;
+    return meds.filter((m: any) => !deletedIds.includes(Number(m.id)));
+  }, [getDeletedMedIds]);
+  // ───────────────────────────────────────────────────────────────────────
+
   const [openSections, setOpenSections] = useState<Record<MedicalSection, boolean>>({
     allergies: true,
     visits: false,
@@ -342,10 +360,7 @@ const [reqType, setReqType] = useState<1 | 2>(1);
 
       let medicalData = normalizeMedicalRecord(mrJson ?? {});
       if (Array.isArray(meds) && meds.length) {
-        medicalData = {
-          ...medicalData,
-          medications: meds,
-        };
+        medicalData = { ...medicalData, medications: filterDeletedMeds(meds) };
       }
       setMedical(medicalData);
       setPrescriptions(rxList.map(normalizePrescription));
@@ -360,7 +375,7 @@ const [reqType, setReqType] = useState<1 | 2>(1);
     } finally {
       setLoading(false);
     }
-  }, [patientId]);
+  }, [patientId, filterDeletedMeds]);
 
   useEffect(() => {
     void loadData();
@@ -492,19 +507,16 @@ const [reqType, setReqType] = useState<1 | 2>(1);
   const refreshMedical = useCallback(async () => {
     try {
       const mrJson = await medicalRecordService.getByPatient(patientId);
-      const meds = await medicationService.getByPatient(patientId);
+      const meds = await medicationService.getByPatient(patientId).catch(() => [] as unknown[]);
       let medicalData = normalizeMedicalRecord(mrJson);
       if (Array.isArray(meds) && meds.length) {
-        medicalData = {
-          ...medicalData,
-          medications: meds,
-        };
+        medicalData = { ...medicalData, medications: filterDeletedMeds(meds) };
       }
       setMedical(medicalData);
     } catch (e) {
       console.error("[refreshMedical] Error:", e);
     }
-  }, [patientId]);
+  }, [patientId, filterDeletedMeds]);
 
   const submitAddAllergy = async () => {
     if (!addAllergyForm.name.trim()) { setToast("Name is required."); return; }
