@@ -1,42 +1,36 @@
 import * as signalR from "@microsoft/signalr";
+import { API_BASE_URL } from "../api/axiosInstance";
+import type { NotificationDto } from "./notificationService";
 
-const HUB_URL = "https://clinical.runasp.net/hubs/notifications";
+const HUB_URL = `${API_BASE_URL.replace(/\/$/, "")}/hubs/notifications`;
 
 class NotificationHubService {
   private connection: signalR.HubConnection | null = null;
 
-  async start(onReceive: (notification: any) => void) {
+  async start(onReceive: (notification: NotificationDto) => void): Promise<void> {
     if (this.connection) return;
 
     this.connection = new signalR.HubConnectionBuilder()
       .withUrl(HUB_URL, {
-        accessTokenFactory: () => {
-          return localStorage.getItem("token") || "";
-        },
+        accessTokenFactory: () => localStorage.getItem("token") || "",
       })
       .withAutomaticReconnect()
       .build();
 
-    this.connection.on("ReceiveNotification", (data) => {
-      console.log("notification received", data);
-
+    this.connection.on("ReceiveNotification", (data: NotificationDto) => {
       onReceive(data);
     });
 
     try {
       await this.connection.start();
-
-      console.log("SignalR connected");
     } catch (err) {
       console.error("SignalR connection error:", err);
     }
   }
 
-  async stop() {
+  async stop(): Promise<void> {
     if (!this.connection) return;
-
     await this.connection.stop();
-
     this.connection = null;
   }
 }

@@ -703,9 +703,9 @@ const MedicalRecordPage: React.FC = () => {
             <input type="text" placeholder="Frequency" value={medForm.frequency} onChange={(e) => setMedForm((f) => ({ ...f, frequency: e.target.value }))} className={INPUT_CLASS} />
             <input type="date" value={medForm.startDate} onChange={(e) => setMedForm((f) => ({ ...f, startDate: e.target.value }))} className={INPUT_CLASS} />
             <input type="date" placeholder="End Date (optional)" value={medForm.endDate} onChange={(e) => setMedForm((f) => ({ ...f, endDate: e.target.value }))} className={INPUT_CLASS} />
-            <input type="text" placeholder="Reminder Times (comma-separated)" value={medForm.reminderTimes} onChange={(e) => setMedForm((f) => ({ ...f, reminderTimes: e.target.value }))} className={INPUT_CLASS} />
-            <input type="text" placeholder="Days of Week (comma-separated)" value={medForm.daysOfWeek} onChange={(e) => setMedForm((f) => ({ ...f, daysOfWeek: e.target.value }))} className={INPUT_CLASS} />
-            <input type="text" placeholder="Notes (optional)" value={medForm.notes} onChange={(e) => setMedForm((f) => ({ ...f, notes: e.target.value }))} className={INPUT_CLASS} />
+            {/* <input type="text" placeholder="Reminder Times (comma-separated)" value={medForm.reminderTimes} onChange={(e) => setMedForm((f) => ({ ...f, reminderTimes: e.target.value }))} className={INPUT_CLASS} /> */}
+            {/* <input type="text" placeholder="Days of Week (comma-separated)" value={medForm.daysOfWeek} onChange={(e) => setMedForm((f) => ({ ...f, daysOfWeek: e.target.value }))} className={INPUT_CLASS} /> */}
+            {/* <input type="text" placeholder="Notes (optional)" value={medForm.notes} onChange={(e) => setMedForm((f) => ({ ...f, notes: e.target.value }))} className={INPUT_CLASS} /> */}
           </>
         )}
         {activeTab === "familyConditions" && (

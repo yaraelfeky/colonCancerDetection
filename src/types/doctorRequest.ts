@@ -66,7 +66,8 @@ export interface DoctorRequestResponseDto {
   id: number;
   message: string;
   createdAt: string;
-  [key: string]: unknown; // allow additional fields from backend
+  appointmentSchedule?: string[];
+  [key: string]: unknown;
 }
 
 // ── Request Payloads ─────────────────────────────────────────────────────────

@@ -116,10 +116,16 @@ function normalizeDoctorPatientDto(raw: Record<string, unknown>): ListPatient | 
 }
 
 async function fetchDoctorPatientsFromApi(): Promise<ListPatient[]> {
-  const { data } = await axiosInstance.get<ApiResponse<DoctorPatientDto[]>>(DOCTOR_PATIENTS);
-  const list = unwrapApiDataOrEmpty(data);
+  const { data } = await axiosInstance.get(DOCTOR_PATIENTS);
+  let list: unknown[] = [];
+  if (Array.isArray(data)) {
+    list = data;
+  } else if (data && typeof data === "object" && Array.isArray((data as any).data)) {
+    list = (data as any).data;
+  }
+  
   return list
-    .map((item) => normalizeDoctorPatientDto(item as unknown as Record<string, unknown>))
+    .map((item) => normalizeDoctorPatientDto(item as Record<string, unknown>))
     .filter((item): item is ListPatient => item !== null);
 }
 

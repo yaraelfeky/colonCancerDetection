@@ -30,55 +30,7 @@ interface Report {
 
 type SortOrder = "Newest" | "Oldest";
 
-const MOCK_REPORTS: Report[] = [
-  {
-    id: "REP-1001",
-    patient: { id: "PT-2001", name: "Hagar Ahmed" },
-    date: "2026-02-15",
-    type: "Diagnosis",
-    status: "Completed",
-    summary: "Suspicious polyp detected in sigmoid colon; histopathology advised.",
-    diagnosis: "Likely adenomatous polyp with moderate dysplasia.",
-    recommendations:
-      "Schedule biopsy confirmation and follow-up colonoscopy in 6 months.",
-    doctorNotes:
-      "Patient informed about findings and agreed to biopsy procedure next week.",
-    extraInfo: "Family history positive for colorectal cancer.",
-  },
-  {
-    id: "REP-1002",
-    patient: { id: "PT-2002", name: "Omar Adel" },
-    date: "2026-02-12",
-    type: "Lab Results",
-    status: "Pending",
-    summary: "Awaiting complete blood panel and CEA marker result validation.",
-    diagnosis: "Preliminary findings inconclusive.",
-    recommendations: "Review full lab panel once available.",
-    doctorNotes: "Lab reported delay due to sample processing issues.",
-  },
-  {
-    id: "REP-1003",
-    patient: { id: "PT-2003", name: "Sara Youssef" },
-    date: "2026-02-09",
-    type: "Follow-up",
-    status: "Completed",
-    summary: "Post-treatment follow-up indicates stable condition and symptom relief.",
-    diagnosis: "No progression signs observed in current imaging.",
-    recommendations: "Continue current medication protocol and re-evaluate in 8 weeks.",
-    doctorNotes: "Patient adherence improved significantly since previous visit.",
-  },
-  {
-    id: "REP-1004",
-    patient: { id: "PT-2004", name: "Mina Nabil" },
-    date: "2026-01-28",
-    type: "Colonoscopy",
-    status: "Completed",
-    summary: "Multiple benign polyps removed successfully during colonoscopy.",
-    diagnosis: "Benign tubular adenomas, no malignant transformation detected.",
-    recommendations: "Routine surveillance colonoscopy in 12 months.",
-    doctorNotes: "Procedure tolerated well with no post-op complications.",
-  },
-];
+
 
 const reportTypeOptions: Array<ReportType | "All Types"> = [
   "All Types",
@@ -120,25 +72,43 @@ const ReportHistoryPage: React.FC = () => {
       // const patients = await patientService.getMyPatients();
       const patients = (await patientService.getMyPatients()) || [];
       const aiItems = await loadAllAiReports(patients);
-      const mapped: Report[] = aiItems.map((item) => ({
-        id: `AI-${item.imageId}`,
-        patient: { id: String(item.patientId), name: item.patientName },
-        date: item.analyzedAt?.split("T")[0] ?? new Date().toISOString().split("T")[0],
-        type: "Diagnosis" as ReportType,
-        status: item.isCancerous ? "Completed" : "Completed",
-        summary: item.isCancerous
-          ? `Suspicious finding (${Math.round((item.probability ?? 0) * 100)}% confidence)`
-          : `Normal tissue (${Math.round((item.probability ?? 0) * 100)}% confidence)`,
-        diagnosis: item.label ?? (item.isCancerous ? "cancerous" : "normal"),
-        recommendations: item.isCancerous
-          ? "Review with patient and schedule follow-up as needed."
-          : "Continue routine surveillance.",
-        doctorNotes: item.originalFileName ?? "",
-      }));
-      setReports(mapped.length ? mapped : MOCK_REPORTS);
+      const mapped: Report[] = patients.map((p) => {
+        const ai = aiItems.find(a => String(a.patientId) === String(p.id));
+        if (ai) {
+          return {
+            id: `AI-${ai.imageId}`,
+            patient: { id: String(p.id), name: p.name },
+            date: ai.analyzedAt?.split("T")[0] ?? new Date().toISOString().split("T")[0],
+            type: "Diagnosis" as ReportType,
+            status: ai.isCancerous ? "Completed" : "Completed",
+            summary: ai.isCancerous
+              ? `Suspicious finding (${Math.round((ai.probability ?? 0) * 100)}% confidence)`
+              : `Normal tissue (${Math.round((ai.probability ?? 0) * 100)}% confidence)`,
+            diagnosis: ai.label ?? (ai.isCancerous ? "cancerous" : "normal"),
+            recommendations: ai.isCancerous
+              ? "Review with patient and schedule follow-up as needed."
+              : "Continue routine surveillance.",
+            doctorNotes: ai.originalFileName ?? "",
+          };
+        } else {
+          return {
+            id: `PT-${p.id}`,
+            patient: { id: String(p.id), name: p.name },
+            date: new Date().toISOString().split("T")[0],
+            type: "Follow-up" as ReportType,
+            // status: "Pending",
+            summary: "No AI analysis available yet.",
+            diagnosis: "Pending evaluation",
+            recommendations: "Schedule initial screening or upload imaging.",
+            doctorNotes: "",
+            extraInfo: "Patient data loaded from doctor's list.",
+          };
+        }
+      });
+      setReports(mapped);
     } catch (err) {
       setLoadError(getAxiosErrorMessage(err));
-      setReports(MOCK_REPORTS);
+      setReports([]);
     } finally {
       setLoading(false);
     }
@@ -155,14 +125,14 @@ body{font-family:Arial,sans-serif;margin:32px;color:#1a202c;}
 h1{font-size:22px;margin-bottom:4px;}
 .meta{color:#718096;font-size:13px;margin-bottom:24px;}
 .badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600;}
-.completed{background:#d1fae5;color:#065f46;}.pending{background:#fef3c7;color:#92400e;}
+.completed{background:#d1fae5;color:#065f46;}
 section{margin-bottom:18px;}
 h2{font-size:14px;font-weight:700;color:#374151;margin-bottom:6px;border-bottom:1px solid #e2e8f0;padding-bottom:4px;}
 p{font-size:13px;line-height:1.6;color:#4a5568;margin:0;}
 @media print{body{margin:18px;}}
 </style></head><body>
 <h1>Medical Report — ${report.id}</h1>
-<div class="meta">Patient: <strong>${report.patient.name}</strong> &nbsp;|&nbsp; Date: <strong>${report.date}</strong> &nbsp;|&nbsp; Type: <strong>${report.type}</strong> &nbsp;<span class="badge ${report.status === 'Completed' ? 'completed' : 'pending'}">${report.status}</span></div>
+<div class="meta">Patient: <strong>${report.patient.name}</strong> &nbsp;|&nbsp; Date: <strong>${report.date}</strong> &nbsp;|&nbsp; Type: <strong>${report.type}</strong> &nbsp;</div>
 <section><h2>Summary</h2><p>${report.summary}</p></section>
 <section><h2>Diagnosis</h2><p>${report.diagnosis}</p></section>
 <section><h2>Recommendations</h2><p>${report.recommendations}</p></section>
@@ -219,7 +189,7 @@ ${report.extraInfo ? `<section><h2>Additional Medical Info</h2><p>${report.extra
                 Review and manage your patients' diagnostic and follow-up reports.
               </p>
               {loadError && (
-                <p className="mt-2 text-sm text-amber-700">Using sample data — {loadError}</p>
+                <p className="mt-2 text-sm text-red-700">{loadError}</p>
               )}
               {loading && (
                 <p className="mt-2 text-sm text-slate-500">Loading reports from server…</p>

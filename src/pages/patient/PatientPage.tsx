@@ -29,7 +29,10 @@ import {
   Calendar,
 } from "lucide-react";
 import ScrollReveal from "../../components/ScrollReveal";
+import { DoctorRequestCard } from "../../components/doctor/DoctorRequestCard";
+import { PATIENT_LIST_REFRESH_EVENT } from "../../utils/doctorRequestEvents";
 import { doctorRequestService } from "../../services/doctorRequestService";
+import { doctorResponseService } from "../../services/doctorResponseService";
 import type {
   DoctorRequestDto,
   DoctorRequestDetailData,
@@ -64,7 +67,6 @@ import { countPendingInMedicalRecord,
   toMedicalEntryBase,
 } from "../../types/medicalRecord";
 import { USE_MOCK } from "../../config/mockFlags";
-import { appointmentService, type AppointmentDto } from "../../services/appointmentService";
 
 
 
@@ -172,7 +174,6 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
   const [medical, setMedical] = useState<Required<MedicalRecordState> | null>(null);
   const [requests, setRequests] = useState<DoctorRequestDto[]>([]);
   const [prescriptions, setPrescriptions] = useState<ReturnType<typeof normalizePrescription>[]>([]);
-  const [appointments, setAppointments] = useState<AppointmentDto[]>([]);
 
   // ── Doctor Request CRUD state ─────────────────────────────────────────
   const [requestDetailData, setRequestDetailData] = useState<DoctorRequestDetailData | null>(null);
@@ -242,6 +243,12 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
   const [addMedForm, setAddMedForm] = useState({ name: "", dosage: "", frequency: "", startDate: "", endDate: "", reminderTimes: "", daysOfWeek: "", notes: "" });
   const [addFamilyOpen, setAddFamilyOpen] = useState(false);
   const [addFamilyForm, setAddFamilyForm] = useState({ name: "", relative: "", diagnosisDate: "" });
+  
+  // Response editing state
+  const [editingResponse, setEditingResponse] = useState<{ id: number; message: string; appointmentSchedule: string[] } | null>(null);
+  const [editResponseMessage, setEditResponseMessage] = useState("");
+  const [editResponseSchedule, setEditResponseSchedule] = useState("");
+  const [editResponseSaving, setEditResponseSaving] = useState(false);
 
   useEffect(() => {
     if (!toast) return;
@@ -279,24 +286,22 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
       const profilePromise = patientService.getPatientDetailProfile(patientId);
       const aiPromise = aiService.getPatientHistory(patientId).catch(() => [] as AiHistoryItem[]);
       const mrPromise = medicalRecordService.getByPatient(patientId).catch(() => ({} as MedicalRecordState));
+      const pendingMrPromise = medicalRecordService.getPending(patientId).catch(() => ({} as MedicalRecordState));
       const medsPromise = medicationService.getByPatient(patientId).catch(() => [] as unknown[]);
       const rxPromise = prescriptionService.getByPatient(patientId).catch(() => [] as import("../../services/prescriptionService").PrescriptionDto[]);
       const requestsPromise = doctorRequestService.list().then((drList) =>
         drList.filter((r) => String(r.patientId) === String(patientId))
       ).catch(() => [] as DoctorRequestDto[]);
 
-      const [profile, aiData, mrJson, meds, rxList, requestList] = await Promise.all([
+      const [profile, aiData, approvedMr, pendingMr, meds, rxList, requestList] = await Promise.all([
         profilePromise,
         aiPromise,
         mrPromise,
+        pendingMrPromise,
         medsPromise,
         rxPromise,
         requestsPromise,
       ]);
-
-      // Load doctor appointments for this patient
-      const allAppts = await appointmentService.getDoctorAppointments().catch(() => [] as AppointmentDto[]);
-      const patientAppts = allAppts.filter(a => a.patientId === patientId || a.patientName?.toLowerCase() === profile?.name?.toLowerCase());
 
       if (!profile) {
         setLoadError("Patient not found in your assigned list.");
@@ -310,14 +315,25 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
       setPatient(profile);
       setAiHistory(aiData);
 
-      let medicalData = normalizeMedicalRecord(mrJson ?? {});
+      const safeArr = (arr: any) => Array.isArray(arr) ? arr : [];
+      const mergedMr: MedicalRecordState = {
+        ...approvedMr,
+        ...pendingMr,
+        allergies: [...safeArr(approvedMr?.allergies), ...safeArr(pendingMr?.allergies)],
+        visits: [...safeArr(approvedMr?.visits), ...safeArr(pendingMr?.visits)],
+        surgeries: [...safeArr(approvedMr?.surgeries), ...safeArr(pendingMr?.surgeries)],
+        tests: [...safeArr(approvedMr?.tests), ...safeArr(pendingMr?.tests)],
+        medications: [...safeArr(approvedMr?.medications), ...safeArr(pendingMr?.medications)],
+        familyConditions: [...safeArr(approvedMr?.familyConditions), ...safeArr(pendingMr?.familyConditions)],
+      };
+
+      let medicalData = normalizeMedicalRecord(mergedMr);
       if (Array.isArray(meds) && meds.length) {
         medicalData = { ...medicalData, medications: filterDeletedMeds(meds) };
       }
       setMedical(medicalData);
       setPrescriptions(rxList.map(normalizePrescription));
       setRequests(requestList);
-      setAppointments(patientAppts);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Failed to load patient");
       setPatient(null);
@@ -513,7 +529,22 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
 
   const refreshMedical = useCallback(async () => {
     try {
-      const mrJson = await medicalRecordService.getByPatient(patientId);
+      const [approvedMr, pendingMr] = await Promise.all([
+        medicalRecordService.getByPatient(patientId).catch(() => ({} as MedicalRecordState)),
+        medicalRecordService.getPending(patientId).catch(() => ({} as MedicalRecordState))
+      ]);
+      const safeArr = (arr: any) => Array.isArray(arr) ? arr : [];
+      const mrJson: MedicalRecordState = {
+        ...approvedMr,
+        ...pendingMr,
+        allergies: [...safeArr(approvedMr.allergies), ...safeArr(pendingMr.allergies)],
+        visits: [...safeArr(approvedMr.visits), ...safeArr(pendingMr.visits)],
+        surgeries: [...safeArr(approvedMr.surgeries), ...safeArr(pendingMr.surgeries)],
+        tests: [...safeArr(approvedMr.tests), ...safeArr(pendingMr.tests)],
+        medications: [...safeArr(approvedMr.medications), ...safeArr(pendingMr.medications)],
+        familyConditions: [...safeArr(approvedMr.familyConditions), ...safeArr(pendingMr.familyConditions)],
+      };
+      
       const meds = await medicationService.getByPatient(patientId).catch(() => [] as unknown[]);
       let medicalData = normalizeMedicalRecord(mrJson);
       if (Array.isArray(meds) && meds.length) {
@@ -611,6 +642,59 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
       setToast("Family condition added.");
     } catch (e: any) { console.error(e); setToast(e?.message || "Failed to add family condition."); }
     finally { setAddSaving(false); }
+  };
+
+  // Response editing handlers
+  const startEditResponse = (response: DoctorRequestResponseDto) => {
+    if (!response.id) return;
+    setEditingResponse({
+      id: response.id,
+      message: response.message || "",
+      appointmentSchedule: response.appointmentSchedule || [],
+    });
+    setEditResponseMessage(response.message || "");
+    setEditResponseSchedule((response.appointmentSchedule || []).join(", "));
+  };
+
+  const cancelEditResponse = () => {
+    setEditingResponse(null);
+    setEditResponseMessage("");
+    setEditResponseSchedule("");
+  };
+
+  const submitEditResponse = async () => {
+    if (!editingResponse) return;
+    if (!editResponseMessage.trim()) {
+      setToast("Message is required.");
+      return;
+    }
+    
+    setEditResponseSaving(true);
+    try {
+      const scheduleArray = editResponseSchedule
+        .split(",")
+        .map(s => s.trim())
+        .filter(Boolean);
+      
+      await doctorResponseService.update(editingResponse.id, {
+        message: editResponseMessage.trim(),
+        appointmentSchedule: scheduleArray,
+      });
+      
+      // Refresh the request detail to show updated response
+      if (requestDetailData) {
+        const updatedDetail = await doctorRequestService.getById(requestDetailData.request.id);
+        setRequestDetailData(updatedDetail);
+      }
+      
+      setToast("Response updated successfully.");
+      cancelEditResponse();
+    } catch (e: any) {
+      console.error(e);
+      setToast(e?.message || "Failed to update response.");
+    } finally {
+      setEditResponseSaving(false);
+    }
   };
 
   const renderPendingActions = (section: MedicalSection, id: number, isPending: boolean) => {
@@ -1321,13 +1405,80 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
                       <div className="mt-3 space-y-3">
                         {requestDetailData.responses.map((resp, idx) => (
                           <div key={resp.id ?? idx} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                            <p className="text-sm text-slate-800">{resp.message}</p>
-                            <p className="mt-2 text-xs text-slate-500">{resp.createdAt ? formatDateTime(resp.createdAt) : ""}</p>
+                            <div className="flex justify-between items-start gap-2">
+                              <div className="flex-1">
+                                <p className="text-sm text-slate-800">{resp.message}</p>
+                                {resp.appointmentSchedule && resp.appointmentSchedule.length > 0 && (
+                                  <p className="mt-1 text-xs text-slate-600">
+                                    <span className="font-semibold">Appointment:</span> {resp.appointmentSchedule.join(", ")}
+                                  </p>
+                                )}
+                                <p className="mt-2 text-xs text-slate-500">{resp.createdAt ? formatDateTime(resp.createdAt) : ""}</p>
+                              </div>
+                              {resp.id && (
+                                <button
+                                  type="button"
+                                  onClick={() => startEditResponse(resp)}
+                                  className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
+                                >
+                                  <PlusCircle className="h-3.5 w-3.5" />
+                                  Edit
+                                </button>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>
                     )}
                   </div>
+
+                  {/* Edit Response Form */}
+                  {editingResponse && (
+                    <div className="mt-6 rounded-2xl border border-blue-200 bg-blue-50/30 p-5 shadow-sm">
+                      <h3 className="font-semibold text-slate-900">Edit Response</h3>
+                      <div className="mt-4 space-y-4">
+                        <div>
+                          <label htmlFor="edit-response-message" className="mb-1 block text-xs font-semibold text-slate-600">Message</label>
+                          <textarea
+                            id="edit-response-message"
+                            value={editResponseMessage}
+                            onChange={(e) => setEditResponseMessage(e.target.value)}
+                            rows={4}
+                            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                            placeholder="Response message"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="edit-response-schedule" className="mb-1 block text-xs font-semibold text-slate-600">Appointment Schedule (comma-separated ISO dates)</label>
+                          <input
+                            id="edit-response-schedule"
+                            type="text"
+                            value={editResponseSchedule}
+                            onChange={(e) => setEditResponseSchedule(e.target.value)}
+                            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                            placeholder="e.g., 2026-06-16T14:36:00, 2026-06-18T14:36:00"
+                          />
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            disabled={editResponseSaving}
+                            onClick={() => void submitEditResponse()}
+                            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50"
+                          >
+                            {editResponseSaving ? "Saving..." : "Save Changes"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelEditResponse}
+                            className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1410,108 +1561,13 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
 
           {tab === "appointments" && (
             <div className="mt-6 space-y-4">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="text-lg font-bold text-slate-900">Appointments</h2>
-                <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
-                  {appointments.length}
-                </span>
+              <div className="rounded-2xl border border-slate-100 bg-white p-8 text-center shadow-sm">
+                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-slate-50 text-slate-400">
+                  <Calendar className="h-6 w-6" />
+                </div>
+                <h3 className="text-sm font-semibold text-slate-900">Appointments view is disabled</h3>
+                <p className="mt-1 text-sm text-slate-500">Please use the global Schedule tab to view all your appointments.</p>
               </div>
-              {appointments.length === 0 ? (
-                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white py-16 text-center">
-                  <Calendar className="h-12 w-12 text-slate-300" />
-                  <p className="mt-3 text-sm font-medium text-slate-600">No appointments on record</p>
-                  <p className="mt-1 text-xs text-slate-400">Appointments approved from booking requests will appear here</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {appointments
-                    .slice()
-                    .sort((a, b) => {
-                      const da = new Date((a.date ?? a.startTime ?? "")).getTime();
-                      const db = new Date((b.date ?? b.startTime ?? "")).getTime();
-                      return db - da;
-                    })
-                    .map((appt) => {
-                      const status = (appt.status ?? "").toLowerCase();
-                      const statusBadge =
-                        status === "confirmed" || status === "approved"
-                          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                          : status === "cancelled" || status === "rejected"
-                          ? "border-red-200 bg-red-50 text-red-800"
-                          : "border-amber-200 bg-amber-50 text-amber-800";
-                      const dateStr = appt.date
-                        ? appt.date.includes("T")
-                          ? appt.date.split("T")[0]
-                          : appt.date
-                        : appt.startTime
-                        ? appt.startTime.split("T")[0]
-                        : "—";
-                      const timeStr = appt.startTime
-                        ? appt.startTime.includes("T")
-                          ? appt.startTime.split("T")[1]?.slice(0, 5)
-                          : appt.startTime.slice(0, 5)
-                        : appt.time?.slice(0, 5) ?? "";
-
-                      return (
-                        <div
-                          key={appt.id ?? appt.slotId}
-                          className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-                        >
-                          <div className="flex flex-wrap items-start justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                                <CalendarCheck className="h-5 w-5" />
-                              </div>
-                              <div>
-                                <p className="font-semibold text-slate-900">
-                                  {dateStr !== "—"
-                                    ? new Date(dateStr).toLocaleDateString(undefined, {
-                                        weekday: "long",
-                                        year: "numeric",
-                                        month: "long",
-                                        day: "numeric",
-                                      })
-                                    : "—"}
-                                </p>
-                                {timeStr && (
-                                  <p className="mt-0.5 text-sm text-slate-600 flex items-center gap-1">
-                                    <Clock className="h-3.5 w-3.5" />
-                                    {timeStr}
-                                    {appt.endTime && (
-                                      <> — {appt.endTime.includes("T") ? appt.endTime.split("T")[1]?.slice(0, 5) : appt.endTime.slice(0, 5)}</>
-                                    )}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                            <span className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${statusBadge}`}>
-                              {appt.status ?? "Pending"}
-                            </span>
-                          </div>
-                          {(appt.serviceType || appt.patientNotes || appt.doctorNotes) && (
-                            <div className="mt-3 space-y-1.5 border-t border-slate-100 pt-3">
-                              {appt.serviceType && (
-                                <p className="text-sm text-slate-600">
-                                  <strong>Service:</strong> {appt.serviceType}
-                                </p>
-                              )}
-                              {appt.patientNotes && (
-                                <p className="text-sm text-slate-600">
-                                  <strong>Patient notes:</strong> {appt.patientNotes}
-                                </p>
-                              )}
-                              {appt.doctorNotes && (
-                                <p className="text-sm text-slate-600">
-                                  <strong>Doctor notes:</strong> {appt.doctorNotes}
-                                </p>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                </div>
-              )}
             </div>
           )}
         </Container>
@@ -1552,6 +1608,14 @@ export const PatientsListPage: React.FC = () => {
 
   useEffect(() => {
     void loadList();
+  }, [loadList]);
+
+  useEffect(() => {
+    const handleRefresh = () => {
+      void loadList();
+    };
+    window.addEventListener(PATIENT_LIST_REFRESH_EVENT, handleRefresh);
+    return () => window.removeEventListener(PATIENT_LIST_REFRESH_EVENT, handleRefresh);
   }, [loadList]);
 
   const filtered = useMemo(() => {

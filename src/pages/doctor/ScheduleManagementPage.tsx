@@ -31,6 +31,7 @@ import {
   toWeekStartInputValue,
   validateDateTimeRange,
 } from "../../utils/scheduleUtils";
+import { SCHEDULE_REFRESH_EVENT } from "../../utils/doctorRequestEvents";
 
 const PRIMARY = "#0A6EBD";
 const PAGE_SIZE = 10;
@@ -235,6 +236,14 @@ const ScheduleManagementPage: React.FC = () => {
   useEffect(() => {
     if (scheduleView === "weekly") void loadWeekly(weekStart);
   }, [scheduleView, weekStart, loadWeekly]);
+
+  useEffect(() => {
+    const onRefresh = () => {
+      void refreshAllViews(dailyDate, weekStart);
+    };
+    window.addEventListener(SCHEDULE_REFRESH_EVENT, onRefresh);
+    return () => window.removeEventListener(SCHEDULE_REFRESH_EVENT, onRefresh);
+  }, [refreshAllViews, dailyDate, weekStart]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
