@@ -74,7 +74,7 @@ const ProfileTodayScheduleSection: React.FC = () => {
         </div>
         <button
           type="button"
-          onClick={() => navigate("/appointments")}
+          onClick={() => navigate("/schedule")}
           className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-95 shadow-md shrink-0"
           style={{
             background: `linear-gradient(135deg, ${PRIMARY}, #1565C0)`,
