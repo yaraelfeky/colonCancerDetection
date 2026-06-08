@@ -500,15 +500,10 @@ import {
   notificationService,
   type NotificationDto,
 } from "../services/notificationService";
-import { doctorRequestService } from "../services/doctorRequestService";
-import { doctorResponseService } from "../services/doctorResponseService";
-import type { DoctorRequestDto } from "../types/doctorRequest";
 import { getAxiosErrorMessage } from "../utils/axiosError";
 import { setUnreadNotificationCount, addUnreadNotifications } from "../utils/notificationsUnread";
-import { PATIENT_LIST_REFRESH_EVENT } from "../utils/doctorRequestEvents";
 import {
   Bell, CheckCheck, Loader2,
-  CalendarCheck, CalendarX, Inbox,
 } from "lucide-react";
 import { notificationHub } from "../services/notificationHub";
 import ScrollReveal from "../components/ScrollReveal";
@@ -524,21 +519,10 @@ function isUnread(n: NotificationDto): boolean {
 }
 
 export default function NotificationsPage() {
-  const [activeTab, setActiveTab] = useState<"notifications" | "requests">("notifications");
-
   const [notifications, setNotifications] = useState<NotificationDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [markingId, setMarkingId] = useState<number | null>(null);
-
-  const [requests, setRequests] = useState<DoctorRequestDto[]>([]);
-  const [requestsLoading, setRequestsLoading] = useState(true);
-  const [requestsError, setRequestsError] = useState<string | null>(null);
-  const [actionBusy, setActionBusy] = useState<number | null>(null);
-  
-  // Store responseIds mapped to requestIds for use in DELETE/PUT operations
-  const [responseIds, setResponseIds] = useState<Record<number, number>>({});
-
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   useEffect(() => {
@@ -562,34 +546,17 @@ export default function NotificationsPage() {
     }
   }, []);
 
-   const loadRequests = useCallback(async () => {
-    setRequestsLoading(true);
-    setRequestsError(null);
-    try {
-      const data = await doctorRequestService.listIncoming();
-      setRequests(data.filter((r) => !r.isCompleted));
-    } catch (err) {
-      setRequestsError(getAxiosErrorMessage(err));
-      setRequests([]);
-    } finally {
-      setRequestsLoading(false);
-    }
-  }, []);
-
-
   useEffect(() => {
     void loadNotifications();
-    void loadRequests();
-  }, [loadNotifications, loadRequests]);
+  }, [loadNotifications]);
 
   useEffect(() => {
     void notificationHub.start((notification) => {
       setNotifications((prev) => [notification, ...prev]);
       addUnreadNotifications(1);
-      void loadRequests();
     });
     return () => { void notificationHub.stop(); };
-  }, [loadRequests]);
+  }, []);
 
   const handleMarkRead = async (id: number) => {
     setMarkingId(id);
@@ -621,46 +588,6 @@ export default function NotificationsPage() {
     }
   };
 
-  const handleApprove = async (requestId: number) => {
-    setActionBusy(requestId);
-    try {
-      const response = await doctorResponseService.approve(requestId);
-      // Store the responseId for use in DELETE/PUT operations
-      setResponseIds((prev) => ({ ...prev, [requestId]: response.id }));
-      // Remove the request from the notifications list (it will appear in patient profile)
-      setRequests((prev) => prev.filter((r) => r.id !== requestId));
-      setToastMsg("Request approved successfully.");
-      // Refresh patient list to show updated data
-      window.dispatchEvent(new Event(PATIENT_LIST_REFRESH_EVENT));
-    } catch (err) {
-      setToastMsg(getAxiosErrorMessage(err) || "Failed to approve request");
-    } finally {
-      setActionBusy(null);
-    }
-  };
-
-  const handleReject = async (requestId: number) => {
-    setActionBusy(requestId);
-    try {
-      // For rejecting a pending request, delete the request itself
-      // (there's no response to delete yet since it hasn't been approved)
-      await doctorRequestService.remove(requestId);
-      
-      // Remove the request from the list and clean up stored responseId
-      setRequests((prev) => prev.filter((r) => r.id !== requestId));
-      setResponseIds((prev) => {
-        const newIds = { ...prev };
-        delete newIds[requestId];
-        return newIds;
-      });
-      setToastMsg("Request rejected.");
-    } catch (err) {
-      setToastMsg(getAxiosErrorMessage(err) || "Failed to reject request");
-    } finally {
-      setActionBusy(null);
-    }
-  };
-
   const unreadCount = notifications.filter(isUnread).length;
 
   return (
@@ -679,7 +606,7 @@ export default function NotificationsPage() {
                   : "You're all caught up."}
               </p>
             </div>
-            {unreadCount > 0 && activeTab === "notifications" && (
+            {unreadCount > 0 && (
               <button
                 type="button"
                 onClick={() => void handleMarkAllRead()}
@@ -691,177 +618,62 @@ export default function NotificationsPage() {
             )}
           </div>
 
-          {/* Tabs */}
-          <div className="mb-6 flex gap-2 border-b border-gray-200">
-            <button
-              onClick={() => setActiveTab("notifications")}
-              className={`px-4 py-3 text-sm font-semibold border-b-2 transition ${
-                activeTab === "notifications"
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-800"
-              }`}
-            >
-              Notifications
-              {unreadCount > 0 && (
-                <span className="ml-2 inline-flex items-center justify-center rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-600">
-                  {unreadCount}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab("requests")}
-              className={`px-4 py-3 text-sm font-semibold border-b-2 transition ${
-                activeTab === "requests"
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-800"
-              }`}
-            >
-              Patient Requests
-              {requests.length > 0 && (
-                <span className="ml-2 inline-flex items-center justify-center rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-600">
-                  {requests.length}
-                </span>
-              )}
-            </button>
-          </div>
-
-          {/* Notifications Tab */}
-          {activeTab === "notifications" && (
-            <>
-              {loading && (
-                <div className="flex items-center justify-center gap-2 py-16 text-slate-500">
-                  <Loader2 className="animate-spin" size={20} />
-                  Loading notifications…
-                </div>
-              )}
-              {error && !loading && (
-                <div className="rounded-2xl bg-red-50 border border-red-200 p-6 text-red-700 mb-4">
-                  <p className="m-0 font-medium">{error}</p>
-                  <button type="button" onClick={() => void loadNotifications()}
-                    className="mt-3 text-sm underline">
-                    Try again
-                  </button>
-                </div>
-              )}
-              {!loading && !error && notifications.length === 0 && (
-                <div className="rounded-2xl bg-white border border-gray-100 p-10 text-center text-gray-400">
-                  <Bell size={40} className="mx-auto mb-3 opacity-40" />
-                  No notifications right now.
-                </div>
-              )}
-              {!loading && notifications.length > 0 && (
-                <div className="space-y-3">
-                  {notifications.map((n, index) => (
-                    <ScrollReveal key={n.id} variant="fade-up" delay={index * 50}>
-                      <article
-                        className={`rounded-2xl border p-5 shadow-sm transition ${
-                          isUnread(n)
-                            ? "bg-white border-blue-100"
-                            : "bg-slate-50 border-gray-100 opacity-80"
-                        }`}
-                      >
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            {n.title && (
-                              <h2 className="font-semibold text-slate-900 m-0 mb-1">{n.title}</h2>
-                            )}
-                            <p className="text-sm text-slate-700 m-0">{n.message ?? n.body ?? "—"}</p>
-                            <p className="text-xs text-slate-400 mt-2 m-0">{formatDate(n.createdAt)}</p>
-                          </div>
-                          {isUnread(n) && (
-                            <button
-                              type="button"
-                              disabled={markingId === n.id}
-                              onClick={() => void handleMarkRead(n.id)}
-                              className="text-xs text-blue-600 hover:underline disabled:opacity-50 shrink-0"
-                            >
-                              Mark read
-                            </button>
-                          )}
-                        </div>
-                      </article>
-                    </ScrollReveal>
-                  ))}
-                </div>
-              )}
-            </>
+          {/* Notifications Section */}
+          {loading && (
+            <div className="flex items-center justify-center gap-2 py-16 text-slate-500">
+              <Loader2 className="animate-spin" size={20} />
+              Loading notifications…
+            </div>
           )}
-
-          {/* Patient Requests Tab */}
-          {activeTab === "requests" && (
-            <>
-              {requestsLoading && (
-                <div className="flex items-center justify-center gap-2 py-16 text-slate-500">
-                  <Loader2 className="animate-spin" size={20} />
-                  Loading patient requests…
-                </div>
-              )}
-              {requestsError && !requestsLoading && (
-                <div className="rounded-2xl bg-red-50 border border-red-200 p-6 text-red-700 mb-4">
-                  <p className="m-0 font-medium">{requestsError}</p>
-                  <button type="button" onClick={() => void loadRequests()}
-                    className="mt-3 text-sm underline">
-                    Try again
-                  </button>
-                </div>
-              )}
-              {!requestsLoading && !requestsError && requests.length === 0 && (
-                <div className="rounded-2xl bg-white border border-gray-100 p-10 text-center text-gray-400">
-                  <Inbox size={40} className="mx-auto mb-3 opacity-40" />
-                  No pending patient requests.
-                </div>
-              )}
-              {!requestsLoading && requests.length > 0 && (
-                <div className="space-y-3">
-                  {requests.map((req, index) => (
-                    <ScrollReveal key={req.id} variant="fade-up" delay={index * 50}>
-                      <article className="rounded-2xl border border-blue-100 bg-white p-5 shadow-sm">
-                        <div className="flex items-start gap-3">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-                            <Inbox size={20} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-gray-900 m-0 text-base">
-                              {req.subject}
-                            </h3>
-                            <p className="text-gray-600 mt-1 mb-2 text-sm">{req.message}</p>
-                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
-                              <span>Patient ID: {req.patientId}</span>
-                              <span>{formatDate(req.createdAt)}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="mt-4 border-t border-slate-100 pt-4 flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            disabled={actionBusy === req.id}
-                            onClick={() => void handleApprove(req.id)}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:opacity-50"
-                          >
-                            {actionBusy === req.id ? (
-                              <Loader2 size={14} className="animate-spin" />
-                            ) : (
-                              <CalendarCheck size={14} />
-                            )}
-                            Approve
-                          </button>
-                          <button
-                            type="button"
-                            disabled={actionBusy === req.id}
-                            onClick={() => void handleReject(req.id)}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-800 transition hover:bg-red-100 disabled:opacity-50"
-                          >
-                            <CalendarX size={14} />
-                            Reject
-                          </button>
-                        </div>
-                      </article>
-                    </ScrollReveal>
-                  ))}
-                </div>
-              )}
-            </>
+          {error && !loading && (
+            <div className="rounded-2xl bg-red-50 border border-red-200 p-6 text-red-700 mb-4">
+              <p className="m-0 font-medium">{error}</p>
+              <button type="button" onClick={() => void loadNotifications()}
+                className="mt-3 text-sm underline">
+                Try again
+              </button>
+            </div>
+          )}
+          {!loading && !error && notifications.length === 0 && (
+            <div className="rounded-2xl bg-white border border-gray-100 p-10 text-center text-gray-400">
+              <Bell size={40} className="mx-auto mb-3 opacity-40" />
+              No notifications right now.
+            </div>
+          )}
+          {!loading && notifications.length > 0 && (
+            <div className="space-y-3">
+              {notifications.map((n, index) => (
+                <ScrollReveal key={n.id} variant="fade-up" delay={index * 50}>
+                  <article
+                    className={`rounded-2xl border p-5 shadow-sm transition ${
+                      isUnread(n)
+                        ? "bg-white border-blue-100"
+                        : "bg-slate-50 border-gray-100 opacity-80"
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        {n.title && (
+                          <h2 className="font-semibold text-slate-900 m-0 mb-1">{n.title}</h2>
+                        )}
+                        <p className="text-sm text-slate-700 m-0">{n.message ?? n.body ?? "—"}</p>
+                        <p className="text-xs text-slate-400 mt-2 m-0">{formatDate(n.createdAt)}</p>
+                      </div>
+                      {isUnread(n) && (
+                        <button
+                          type="button"
+                          disabled={markingId === n.id}
+                          onClick={() => void handleMarkRead(n.id)}
+                          className="text-xs text-blue-600 hover:underline disabled:opacity-50 shrink-0"
+                        >
+                          Mark read
+                        </button>
+                      )}
+                    </div>
+                  </article>
+                </ScrollReveal>
+              ))}
+            </div>
           )}
         </Container>
       </main>

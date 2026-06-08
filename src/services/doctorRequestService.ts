@@ -115,6 +115,15 @@ export const doctorRequestService = {
     }
   },
 
+  /** DELETE /api/PatientRequest/{requestId} — delete a patient request (used for reject) */
+  async removePatientRequest(requestId: number): Promise<void> {
+    try {
+      await axiosInstance.delete(`/api/PatientRequest/${requestId}`);
+    } catch (error) {
+      throw new Error(parseAxiosError(error));
+    }
+  },
+
   /** PATCH /api/DoctorRequest/{id}/complete — mark request as completed */
   async complete(id: number): Promise<{ success: boolean; message: string; data: null }> {
     try {

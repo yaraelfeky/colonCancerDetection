@@ -88,15 +88,15 @@ function parseAxiosError(error: unknown): string {
 
 export const doctorResponseService = {
   /** POST /api/DoctorResponse — Approve request and return the response data with ID */
-  async approve(patientRequestId: number): Promise<{ id: number; message: string; appointmentSchedule: string[] }> {
+  async approve(patientRequestId: number, appointmentSchedule: string[] = []): Promise<{ id: number; message: string; appointmentSchedule: string[] }> {
     try {
       const { data } = await axiosInstance.post(BASE, {
         patientRequestId,
         message: "Approved",
-        appointmentSchedule: [],
+        appointmentSchedule,
       });
       // Return the response data including the ID for use in PUT/DELETE operations
-      return data.data || { id: patientRequestId, message: "Approved", appointmentSchedule: [] };
+      return data.data || { id: patientRequestId, message: "Approved", appointmentSchedule };
     } catch (error) {
       throw new Error(parseAxiosError(error));
     }

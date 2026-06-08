@@ -48,6 +48,10 @@ export interface DoctorRequestDto {
   updatedAt: string;
   rowVersion: number;
   isDeleted: boolean;
+  // Appointment-related fields (may be present in patient requests)
+  appointmentDate?: string;
+  appointmentTime?: string;
+  appointmentSchedule?: string[];
 }
 
 /** GET /api/DoctorRequest/{id} response wrapper */
