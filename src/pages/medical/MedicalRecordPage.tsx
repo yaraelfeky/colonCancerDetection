@@ -290,10 +290,17 @@ const MedicalRecordPage: React.FC = () => {
     if (!medical) return 0;
     const entries = medical[activeTab];
     if (!Array.isArray(entries)) return 0;
-    return entries.reduce((count, item) => {
+    return entries.reduce((count: number, item) => {
       const base = toMedicalEntryBase(item);
       return base && isPendingMedicalEntry(base) ? count + 1 : count;
     }, 0);
+  }, [medical, activeTab]);
+
+  const tabTotalCount = useMemo(() => {
+    if (!medical) return 0;
+    const entries = medical[activeTab];
+    if (!Array.isArray(entries)) return 0;
+    return entries.length;
   }, [medical, activeTab]);
 
   const resetForms = () => {
@@ -872,17 +879,6 @@ const MedicalRecordPage: React.FC = () => {
                   <span className="flex items-center gap-2">
                     {tabIcon(id)}
                     {label}
-                    {id === "medications"
-                      ? medical && (medical.medications?.length ?? 0) > 0 && (
-                          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">
-                            {medical.medications.length}
-                          </span>
-                        )
-                      : tabPendingCount > 0 && id === activeTab && (
-                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
-                            {tabPendingCount}
-                          </span>
-                        )}
                   </span>
                   {activeTab === id && (
                     <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-blue-600" />

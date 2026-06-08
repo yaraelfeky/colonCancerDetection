@@ -533,6 +533,8 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
         medicalRecordService.getByPatient(patientId).catch(() => ({} as MedicalRecordState)),
         medicalRecordService.getPending(patientId).catch(() => ({} as MedicalRecordState))
       ]);
+      console.log("[refreshMedical] approved:", approvedMr);
+      console.log("[refreshMedical] pending:", pendingMr);
       const safeArr = (arr: any) => Array.isArray(arr) ? arr : [];
       const mrJson: MedicalRecordState = {
         ...approvedMr,
@@ -544,6 +546,7 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
         medications: [...safeArr(approvedMr.medications), ...safeArr(pendingMr.medications)],
         familyConditions: [...safeArr(approvedMr.familyConditions), ...safeArr(pendingMr.familyConditions)],
       };
+      console.log("[refreshMedical] merged:", mrJson);
       
       const meds = await medicationService.getByPatient(patientId).catch(() => [] as unknown[]);
       let medicalData = normalizeMedicalRecord(mrJson);
@@ -560,8 +563,16 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
     if (!addAllergyForm.name.trim()) { setToast("Name is required."); return; }
     setAddSaving(true);
     try {
-      await medicalRecordService.addAllergy(patientId, addAllergyForm);
-      await refreshMedical();
+      const result: any = await medicalRecordService.addAllergy(patientId, addAllergyForm);
+      const newItem = {
+        id: result?.id ?? result?.data?.id ?? Date.now(),
+        name: addAllergyForm.name,
+        severity: addAllergyForm.severity,
+        reaction: addAllergyForm.reaction,
+        status: 0,
+        isPending: true,
+      };
+      setMedical(prev => prev ? { ...prev, allergies: [...prev.allergies, newItem] } : prev);
       setAddAllergyForm({ name: "", severity: "", reaction: "" });
       setAddAllergyOpen(false);
       setToast("Allergy added.");
@@ -573,8 +584,18 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
     if (!addVisitForm.date.trim()) { setToast("Date is required."); return; }
     setAddSaving(true);
     try {
-      await medicalRecordService.addVisit(patientId, addVisitForm);
-      await refreshMedical();
+      const result: any = await medicalRecordService.addVisit(patientId, addVisitForm);
+      const newItem = {
+        id: result?.id ?? result?.data?.id ?? Date.now(),
+        date: addVisitForm.date,
+        doctorName: addVisitForm.doctorName,
+        reasonForVisit: addVisitForm.reasonForVisit,
+        diagnosis: addVisitForm.diagnosis,
+        treatmentPlan: addVisitForm.treatmentPlan,
+        status: 0,
+        isPending: true,
+      };
+      setMedical(prev => prev ? { ...prev, visits: [...prev.visits, newItem] } : prev);
       setAddVisitForm({ date: "", doctorName: "", reasonForVisit: "", diagnosis: "", treatmentPlan: "" });
       setAddVisitOpen(false);
       setToast("Visit added.");
@@ -586,8 +607,16 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
     if (!addSurgeryForm.name.trim()) { setToast("Name is required."); return; }
     setAddSaving(true);
     try {
-      await medicalRecordService.addSurgery(patientId, addSurgeryForm);
-      await refreshMedical();
+      const result: any = await medicalRecordService.addSurgery(patientId, addSurgeryForm);
+      const newItem = {
+        id: result?.id ?? result?.data?.id ?? Date.now(),
+        name: addSurgeryForm.name,
+        date: addSurgeryForm.date,
+        outcome: addSurgeryForm.outcome,
+        status: 0,
+        isPending: true,
+      };
+      setMedical(prev => prev ? { ...prev, surgeries: [...prev.surgeries, newItem] } : prev);
       setAddSurgeryForm({ name: "", date: "", outcome: "" });
       setAddSurgeryOpen(false);
       setToast("Surgery added.");
@@ -599,8 +628,16 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
     if (!addTestForm.name.trim()) { setToast("Name is required."); return; }
     setAddSaving(true);
     try {
-      await medicalRecordService.addTest(patientId, addTestForm);
-      await refreshMedical();
+      const result: any = await medicalRecordService.addTest(patientId, addTestForm);
+      const newItem = {
+        id: result?.id ?? result?.data?.id ?? Date.now(),
+        name: addTestForm.name,
+        date: addTestForm.date,
+        result: addTestForm.result,
+        status: 0,
+        isPending: true,
+      };
+      setMedical(prev => prev ? { ...prev, tests: [...prev.tests, newItem] } : prev);
       setAddTestForm({ name: "", date: "", result: "" });
       setAddTestOpen(false);
       setToast("Test added.");
@@ -622,8 +659,19 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
         daysOfWeek: addMedForm.daysOfWeek ? addMedForm.daysOfWeek.split(",").map(s => s.trim()).filter(Boolean) : [],
         notes: addMedForm.notes || null,
       };
-      await medicalRecordService.addMedication(patientId, payload);
-      await refreshMedical();
+      const result: any = await medicalRecordService.addMedication(patientId, payload);
+      const newItem = {
+        id: result?.id ?? result?.data?.id ?? Date.now(),
+        name: payload.name,
+        dosage: payload.dosage,
+        frequency: payload.frequency,
+        startDate: payload.startDate,
+        endDate: payload.endDate,
+        notes: payload.notes,
+        status: 0,
+        isPending: true,
+      };
+      setMedical(prev => prev ? { ...prev, medications: [...prev.medications, newItem] } : prev);
       setAddMedForm({ name: "", dosage: "", frequency: "", startDate: "", endDate: "", reminderTimes: "", daysOfWeek: "", notes: "" });
       setAddMedOpen(false);
       setToast("Medication added.");
@@ -635,8 +683,16 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
     if (!addFamilyForm.name.trim()) { setToast("Name is required."); return; }
     setAddSaving(true);
     try {
-      await medicalRecordService.addFamilyCondition(patientId, addFamilyForm);
-      await refreshMedical();
+      const result: any = await medicalRecordService.addFamilyCondition(patientId, addFamilyForm);
+      const newItem = {
+        id: result?.id ?? result?.data?.id ?? Date.now(),
+        name: addFamilyForm.name,
+        relative: addFamilyForm.relative,
+        diagnosisDate: addFamilyForm.diagnosisDate,
+        status: 0,
+        isPending: true,
+      };
+      setMedical(prev => prev ? { ...prev, familyConditions: [...prev.familyConditions, newItem] } : prev);
       setAddFamilyForm({ name: "", relative: "", diagnosisDate: "" });
       setAddFamilyOpen(false);
       setToast("Family condition added.");
@@ -697,69 +753,8 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
     }
   };
 
-  const renderPendingActions = (section: MedicalSection, id: number, isPending: boolean) => {
-    // Medications section does not show approve/reject buttons
-    if (section === "medications") return null;
-    if (!isPending) return null;
-    const busyKey = `${section}-${id}-`;
-    const busy = reviewBusy === `${busyKey}true` || reviewBusy === `${busyKey}false`;
-    const isRejecting = rejectDraft?.section === section && rejectDraft.id === id;
-
-    return (
-      <div className="mt-3 border-t border-slate-100 pt-3">
-        <span className="mb-2 inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800">
-          Pending Review
-        </span>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => onApprove(section, id)}
-            className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:opacity-50"
-          >
-            <CheckCircle className="h-3.5 w-3.5" />
-            Approve
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => startReject(section, id)}
-            className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-800 transition hover:bg-red-100 disabled:opacity-50"
-          >
-            <XCircle className="h-3.5 w-3.5" />
-            Reject
-          </button>
-        </div>
-        {isRejecting && (
-          <div className="mt-3 space-y-2">
-            <textarea
-              value={rejectDraft.note}
-              onChange={(e) => setRejectDraft({ ...rejectDraft, note: e.target.value })}
-              placeholder="Reason for rejection (required)"
-              rows={2}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-            />
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={submitReject}
-                className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
-              >
-                Confirm reject
-              </button>
-              <button
-                type="button"
-                onClick={cancelReject}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const renderPendingActions = (_section: MedicalSection, _id: number, _isPending: boolean) => null;
 
   const sectionHeader = (
     section: MedicalSection,
@@ -881,11 +876,6 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
                 >
                   <span className="flex items-center gap-2">
                     {label}
-                    {id === "medical" && pendingMedicalCount > 0 && (
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
-                        {pendingMedicalCount}
-                      </span>
-                    )}
                   </span>
                   {tab === id && (
                     <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-blue-600" />

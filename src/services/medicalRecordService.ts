@@ -44,6 +44,58 @@ const EMPTY_RECORD: MedicalRecordState = {
   familyConditions: [],
 };
 
+/**
+ * Normalizes backend field name variants to the canonical frontend field names.
+ * Handles both camelCase and PascalCase (C# backend convention), plus known aliases.
+ */
+function normalizeMedicalRecordFields(raw: Record<string, unknown>): MedicalRecordState {
+  // Log all keys so we can see what the backend actually sends
+  console.log("[normalizeMedicalRecordFields] raw keys:", Object.keys(raw));
+
+  const pick = (...keys: string[]): unknown[] => {
+    // First pass: prefer non-empty arrays
+    for (const k of keys) {
+      const v = raw[k];
+      if (Array.isArray(v) && v.length > 0) return v as unknown[];
+    }
+    // Second pass: return any array (even empty) so we don't lose the field
+    for (const k of keys) {
+      const v = raw[k];
+      if (Array.isArray(v)) return v as unknown[];
+    }
+    return [];
+  };
+
+  return {
+    ...raw,
+    // camelCase  |  PascalCase (C#)  |  known aliases
+    allergies: pick(
+      "allergies", "Allergies"
+    ),
+    visits: pick(
+      "visits", "Visits",
+      "medicalVisits", "MedicalVisits"
+    ),
+    surgeries: pick(
+      "surgeries", "Surgeries"
+    ),
+    tests: pick(
+      "tests", "Tests",
+      "labTests", "LabTests",
+      "labResults", "LabResults",
+      "medicalTests", "MedicalTests"
+    ),
+    medications: pick(
+      "medications", "Medications"
+    ),
+    familyConditions: pick(
+      "familyConditions", "FamilyConditions",
+      "familyHistory", "FamilyHistory",
+      "familyMedicalHistory", "FamilyMedicalHistory"
+    ),
+  };
+}
+
 function logApiError(error: unknown): void {
   if (error instanceof AxiosError) {
     console.error("API Error:", error.response?.data || error.message);
@@ -84,7 +136,10 @@ export const medicalRecordService = {
           `${BASE}/patient/${patientId}`
         )
       );
-      return unwrapApiDataOptional(data) ?? { ...EMPTY_RECORD };
+      const unwrapped = unwrapApiDataOptional(data);
+      console.log("[getByPatient] raw unwrapped:", unwrapped);
+      if (!unwrapped) return { ...EMPTY_RECORD };
+      return normalizeMedicalRecordFields(unwrapped as Record<string, unknown>);
     } catch (error) {
       console.warn("medicalRecordService.getByPatient failed:", error);
       return { ...EMPTY_RECORD };
@@ -101,9 +156,15 @@ export const medicalRecordService = {
           `${BASE}/patient/${patientId}/pending`
         )
       );
-      return unwrapApiDataOptional(data) ?? { ...EMPTY_RECORD };
-    } catch (error) {
-      console.warn("medicalRecordService.getPending failed:", error);
+      const unwrapped = unwrapApiDataOptional(data);
+      if (!unwrapped) return { ...EMPTY_RECORD };
+      return normalizeMedicalRecordFields(unwrapped as Record<string, unknown>);
+    } catch (error: any) {
+      // 404 means the /pending endpoint doesn't exist on this backend — silently ignore
+      const status = error?.response?.status ?? error?.status;
+      if (status !== 404) {
+        console.warn("medicalRecordService.getPending failed:", error);
+      }
       return { ...EMPTY_RECORD };
     }
   },
