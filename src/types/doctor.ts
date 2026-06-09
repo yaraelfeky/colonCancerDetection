@@ -72,6 +72,9 @@ export interface DoctorProfileDto {
   yearsOfExperience?: number;
   averageRating?: number;
   reviewsCount?: number;
+  professionalPracticeLicense?: string;
+  issuingAuthority?: string;
+  licenseExpirationDate?: string;
   /** e.g. "MBBS, MD, Cardiology" */
   degrees?: string;
   clinicName?: string;

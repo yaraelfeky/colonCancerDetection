@@ -18,6 +18,7 @@ import {
   readLocalAvatarDataUrl,
   writeLocalAvatarDataUrl,
   clearLocalProfile,
+  writeLocalProfile,
 } from "../../utils/localDoctorProfile";
 import {
   resolveDisplayEmail,
@@ -1082,6 +1083,16 @@ function EditProfileModal({
   onClose: () => void;
   onSaved: (p: DoctorProfileDto | null) => void;
 }) {
+  // Backend fields
+  const [userName, setUserName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [license, setLicense] = useState("");
+  const [issuingAuthority, setIssuingAuthority] = useState("");
+  const [licenseExp, setLicenseExp] = useState("");
+  const [profileImage, setProfileImage] = useState<File | null>(null);
+
+  // Frontend fields
   const [fullName, setFullName] = useState("");
   const [specialty, setSpecialty] = useState("");
   const [yearsStr, setYearsStr] = useState("");
@@ -1090,16 +1101,26 @@ function EditProfileModal({
   const [clinicName, setClinicName] = useState("");
   const [consultationFee, setConsultationFee] = useState("");
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  /** 'none' | 'removed' | data URL for new upload */
   const [avatarChange, setAvatarChange] = useState<"none" | "removed" | string>("none");
   const [educationRows, setEducationRows] = useState<DoctorEducationDto[]>([]);
   const [experienceRows, setExperienceRows] = useState<DoctorExperienceDto[]>([]);
   const [achievementRows, setAchievementRows] = useState<DoctorAchievementDto[]>([]);
+  
   const [saving, setSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
     if (!open) return;
     const p = profile;
+    // Backend
+    setUserName(p?.userName ?? "");
+    setEmail(p?.email ?? "");
+    setPhoneNumber(p?.phoneNumber ?? "");
+    setLicense(p?.professionalPracticeLicense ?? "");
+    setIssuingAuthority(p?.issuingAuthority ?? "");
+    setLicenseExp(p?.licenseExpirationDate ? p.licenseExpirationDate.split("T")[0] : "");
+    
+    // Frontend
     setFullName((p?.fullName ?? displayNameFallback).trim() || displayNameFallback);
     setSpecialty(p?.specialty?.trim() ?? "");
     setYearsStr(p?.yearsOfExperience != null ? String(p.yearsOfExperience) : "");
@@ -1107,12 +1128,13 @@ function EditProfileModal({
     setDegrees(p?.degrees?.trim() ?? "");
     setClinicName(p?.clinicName?.trim() ?? "");
     setConsultationFee(p?.consultationFee?.trim() ?? "");
-    const existing = readLocalAvatarDataUrl() ?? p?.profileImageUrl ?? null;
-    setAvatarPreview(existing);
-    setAvatarChange("none");
     setEducationRows(p?.education?.length ? p.education.map((e) => ({ ...e })) : []);
     setExperienceRows(p?.experience?.length ? p.experience.map((e) => ({ ...e })) : []);
     setAchievementRows(p?.achievements?.length ? p.achievements.map((e) => ({ ...e })) : []);
+
+    const existing = readLocalAvatarDataUrl() ?? p?.profileImageUrl ?? null;
+    setAvatarPreview(existing);
+    setAvatarChange("none");
   }, [open, profile, displayNameFallback]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1123,6 +1145,7 @@ function EditProfileModal({
       window.alert("Please choose an image under 2.5 MB.");
       return;
     }
+    setProfileImage(file);
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = typeof reader.result === "string" ? reader.result : null;
@@ -1138,19 +1161,23 @@ function EditProfileModal({
   const removeAvatar = () => {
     setAvatarPreview(null);
     setAvatarChange("removed");
+    setProfileImage(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    setErrorMsg("");
     try {
       if (avatarChange === "removed") {
         writeLocalAvatarDataUrl(null);
       } else if (avatarChange !== "none" && typeof avatarChange === "string") {
         writeLocalAvatarDataUrl(avatarChange);
       }
+      
+      // 1. Save frontend fields locally
       const y = yearsStr.trim();
-      const body: Partial<DoctorProfileDto> = {
+      const localBody: Partial<DoctorProfileDto> = {
         fullName: fullName.trim(),
         specialty: specialty.trim(),
         yearsOfExperience: y === "" ? undefined : Number(y),
@@ -1162,11 +1189,28 @@ function EditProfileModal({
         education: normalizeEducation(educationRows),
         experience: normalizeExperience(experienceRows),
         achievements: normalizeAchievements(achievementRows),
-        // Clear the server-side image URL when user removes avatar
         profileImageUrl: avatarChange === "removed" ? "" : undefined,
       };
-      const result = await doctorService.updateProfile(body);
+      writeLocalProfile(localBody);
+
+      // 2. Send backend fields to API
+      const formData = new FormData();
+      if (profileImage) {
+        formData.append("Image", profileImage);
+      }
+      formData.append("UserName", userName);
+      formData.append("Email", email);
+      formData.append("PhoneNumber", phoneNumber);
+      formData.append("ProfessionalPracticeLicense", license);
+      formData.append("IssuingAuthority", issuingAuthority);
+      if (licenseExp) {
+        formData.append("LicenseExpirationDate", licenseExp);
+      }
+      
+      const result = await doctorService.updateDoctorFormData(formData);
       onSaved(result);
+    } catch (err: any) {
+      setErrorMsg(err.response?.data?.message || err.message || "Failed to update profile");
     } finally {
       setSaving(false);
     }
@@ -1234,273 +1278,129 @@ function EditProfileModal({
                   </button>
                 )}
               </div>
-              <p className="text-xs text-gray-400 m-0">Stored locally until your API supports image upload.</p>
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Display name</label>
-            <input
-              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Specialty</label>
-            <input
-              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm"
-              placeholder="e.g. Colorectal oncology"
-              value={specialty}
-              onChange={(e) => setSpecialty(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Degrees</label>
-            <input
-              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm"
-              placeholder="e.g. MBBS, MD"
-              value={degrees}
-              onChange={(e) => setDegrees(e.target.value)}
-            />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Clinic</label>
-              <input
-                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm"
-                placeholder="Clinic name"
-                value={clinicName}
-                onChange={(e) => setClinicName(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Consultation fee</label>
-              <input
-                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm"
-                placeholder="e.g. $499 / 30 min"
-                value={consultationFee}
-                onChange={(e) => setConsultationFee(e.target.value)}
-              />
+          {/* Backend Fields */}
+          <div className="border-t border-gray-100 pt-4 mt-2">
+            <h3 className="text-sm font-extrabold m-0 mb-3" style={{ color: TEXT }}>Account Data</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Username</label>
+                <input className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm" value={userName} onChange={(e) => setUserName(e.target.value)} required />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Email</label>
+                <input type="email" className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Phone Number</label>
+                <input className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">License No.</label>
+                <input className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm" value={license} onChange={(e) => setLicense(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Issuing Authority</label>
+                <input className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm" value={issuingAuthority} onChange={(e) => setIssuingAuthority(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">License Expiration</label>
+                <input type="date" className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm" value={licenseExp} onChange={(e) => setLicenseExp(e.target.value)} />
+              </div>
             </div>
           </div>
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Years of experience</label>
-            <input
-              type="number"
-              min={0}
-              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm"
-              value={yearsStr}
-              onChange={(e) => setYearsStr(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Bio</label>
-            <textarea
-              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm min-h-[100px]"
-              placeholder="Short professional summary…"
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-            />
+
+          {/* Frontend Fields */}
+          <div className="border-t border-gray-100 pt-4 mt-2">
+             <h3 className="text-sm font-extrabold m-0 mb-3" style={{ color: TEXT }}>Professional Data</h3>
+             <div>
+               <label className="block text-sm font-bold text-gray-700 mb-1">Display name</label>
+               <input className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+             </div>
+             <div className="mt-4">
+               <label className="block text-sm font-bold text-gray-700 mb-1">Specialty</label>
+               <input className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm" placeholder="e.g. Colorectal oncology" value={specialty} onChange={(e) => setSpecialty(e.target.value)} />
+             </div>
+             <div className="mt-4">
+               <label className="block text-sm font-bold text-gray-700 mb-1">Degrees</label>
+               <input className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm" placeholder="e.g. MBBS, MD" value={degrees} onChange={(e) => setDegrees(e.target.value)} />
+             </div>
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+               <div>
+                 <label className="block text-sm font-bold text-gray-700 mb-1">Clinic</label>
+                 <input className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm" placeholder="Clinic name" value={clinicName} onChange={(e) => setClinicName(e.target.value)} />
+               </div>
+               <div>
+                 <label className="block text-sm font-bold text-gray-700 mb-1">Consultation fee</label>
+                 <input className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm" placeholder="e.g. $499 / 30 min" value={consultationFee} onChange={(e) => setConsultationFee(e.target.value)} />
+               </div>
+             </div>
+             <div className="mt-4">
+               <label className="block text-sm font-bold text-gray-700 mb-1">Years of experience</label>
+               <input type="number" min={0} className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm" value={yearsStr} onChange={(e) => setYearsStr(e.target.value)} />
+             </div>
+             <div className="mt-4">
+               <label className="block text-sm font-bold text-gray-700 mb-1">Bio</label>
+               <textarea className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm min-h-[100px]" placeholder="Short professional summary…" value={bio} onChange={(e) => setBio(e.target.value)} />
+             </div>
           </div>
 
           <div className="border-t border-gray-100 pt-4 space-y-3">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm font-extrabold m-0" style={{ color: TEXT }}>
-                Education
-              </h3>
-              <button
-                type="button"
-                className="text-xs font-bold px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50"
-                onClick={() => setEducationRows((rows) => [...rows, {}])}
-              >
-                + Add entry
-              </button>
+              <h3 className="text-sm font-extrabold m-0" style={{ color: TEXT }}>Education</h3>
+              <button type="button" className="text-xs font-bold px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50" onClick={() => setEducationRows((rows) => [...rows, {}])}>+ Add entry</button>
             </div>
             {educationRows.length === 0 && <p className="text-xs text-gray-400 m-0">No entries — click Add entry.</p>}
             {educationRows.map((row, idx) => (
               <div key={idx} className="rounded-xl border border-gray-100 p-3 space-y-2 bg-gray-50/80">
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    className="text-xs font-semibold text-red-600 hover:underline"
-                    onClick={() => setEducationRows((rows) => rows.filter((_, i) => i !== idx))}
-                  >
-                    Remove
-                  </button>
-                </div>
-                <input
-                  className="w-full rounded-lg border border-gray-200 px-2 py-2 text-sm"
-                  placeholder="Degree (e.g. MD)"
-                  value={row.degree ?? ""}
-                  onChange={(e) => {
-                    const next = [...educationRows];
-                    next[idx] = { ...row, degree: e.target.value };
-                    setEducationRows(next);
-                  }}
-                />
-                <input
-                  className="w-full rounded-lg border border-gray-200 px-2 py-2 text-sm"
-                  placeholder="University / institution"
-                  value={row.university ?? ""}
-                  onChange={(e) => {
-                    const next = [...educationRows];
-                    next[idx] = { ...row, university: e.target.value };
-                    setEducationRows(next);
-                  }}
-                />
-                <input
-                  type="number"
-                  className="w-full rounded-lg border border-gray-200 px-2 py-2 text-sm"
-                  placeholder="Year"
-                  value={row.year === undefined || row.year === null ? "" : row.year}
-                  onChange={(e) => {
-                    const next = [...educationRows];
-                    const v = e.target.value;
-                    next[idx] = { ...row, year: v === "" ? undefined : Number(v) };
-                    setEducationRows(next);
-                  }}
-                />
+                <div className="flex justify-end"><button type="button" className="text-xs font-semibold text-red-600 hover:underline" onClick={() => setEducationRows((rows) => rows.filter((_, i) => i !== idx))}>Remove</button></div>
+                <input className="w-full rounded-lg border border-gray-200 px-2 py-2 text-sm" placeholder="Degree (e.g. MD)" value={row.degree ?? ""} onChange={(e) => { const next = [...educationRows]; next[idx] = { ...row, degree: e.target.value }; setEducationRows(next); }} />
+                <input className="w-full rounded-lg border border-gray-200 px-2 py-2 text-sm" placeholder="University / institution" value={row.university ?? ""} onChange={(e) => { const next = [...educationRows]; next[idx] = { ...row, university: e.target.value }; setEducationRows(next); }} />
+                <input type="number" className="w-full rounded-lg border border-gray-200 px-2 py-2 text-sm" placeholder="Year" value={row.year === undefined || row.year === null ? "" : row.year} onChange={(e) => { const next = [...educationRows]; const v = e.target.value; next[idx] = { ...row, year: v === "" ? undefined : Number(v) }; setEducationRows(next); }} />
               </div>
             ))}
           </div>
 
           <div className="border-t border-gray-100 pt-4 space-y-3">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm font-extrabold m-0" style={{ color: TEXT }}>
-                Experience
-              </h3>
-              <button
-                type="button"
-                className="text-xs font-bold px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50"
-                onClick={() => setExperienceRows((rows) => [...rows, {}])}
-              >
-                + Add entry
-              </button>
+              <h3 className="text-sm font-extrabold m-0" style={{ color: TEXT }}>Experience</h3>
+              <button type="button" className="text-xs font-bold px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50" onClick={() => setExperienceRows((rows) => [...rows, {}])}>+ Add entry</button>
             </div>
             {experienceRows.length === 0 && <p className="text-xs text-gray-400 m-0">No entries — click Add entry.</p>}
             {experienceRows.map((row, idx) => (
               <div key={idx} className="rounded-xl border border-gray-100 p-3 space-y-2 bg-gray-50/80">
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    className="text-xs font-semibold text-red-600 hover:underline"
-                    onClick={() => setExperienceRows((rows) => rows.filter((_, i) => i !== idx))}
-                  >
-                    Remove
-                  </button>
-                </div>
-                <input
-                  className="w-full rounded-lg border border-gray-200 px-2 py-2 text-sm"
-                  placeholder="Hospital / clinic"
-                  value={row.hospitalOrClinic ?? ""}
-                  onChange={(e) => {
-                    const next = [...experienceRows];
-                    next[idx] = { ...row, hospitalOrClinic: e.target.value };
-                    setExperienceRows(next);
-                  }}
-                />
-                <input
-                  type="number"
-                  className="w-full rounded-lg border border-gray-200 px-2 py-2 text-sm"
-                  placeholder="Years"
-                  value={row.years === undefined || row.years === null ? "" : row.years}
-                  onChange={(e) => {
-                    const next = [...experienceRows];
-                    const v = e.target.value;
-                    next[idx] = { ...row, years: v === "" ? undefined : Number(v) };
-                    setExperienceRows(next);
-                  }}
-                />
-                <input
-                  className="w-full rounded-lg border border-gray-200 px-2 py-2 text-sm"
-                  placeholder="Role (optional)"
-                  value={row.role ?? ""}
-                  onChange={(e) => {
-                    const next = [...experienceRows];
-                    next[idx] = { ...row, role: e.target.value };
-                    setExperienceRows(next);
-                  }}
-                />
+                <div className="flex justify-end"><button type="button" className="text-xs font-semibold text-red-600 hover:underline" onClick={() => setExperienceRows((rows) => rows.filter((_, i) => i !== idx))}>Remove</button></div>
+                <input className="w-full rounded-lg border border-gray-200 px-2 py-2 text-sm" placeholder="Hospital / clinic" value={row.hospitalOrClinic ?? ""} onChange={(e) => { const next = [...experienceRows]; next[idx] = { ...row, hospitalOrClinic: e.target.value }; setExperienceRows(next); }} />
+                <input type="number" className="w-full rounded-lg border border-gray-200 px-2 py-2 text-sm" placeholder="Years" value={row.years === undefined || row.years === null ? "" : row.years} onChange={(e) => { const next = [...experienceRows]; const v = e.target.value; next[idx] = { ...row, years: v === "" ? undefined : Number(v) }; setExperienceRows(next); }} />
+                <input className="w-full rounded-lg border border-gray-200 px-2 py-2 text-sm" placeholder="Role (optional)" value={row.role ?? ""} onChange={(e) => { const next = [...experienceRows]; next[idx] = { ...row, role: e.target.value }; setExperienceRows(next); }} />
               </div>
             ))}
           </div>
 
           <div className="border-t border-gray-100 pt-4 space-y-3">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm font-extrabold m-0" style={{ color: TEXT }}>
-                Certificates, awards & achievements
-              </h3>
-              <button
-                type="button"
-                className="text-xs font-bold px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50"
-                onClick={() => setAchievementRows((rows) => [...rows, {}])}
-              >
-                + Add entry
-              </button>
+              <h3 className="text-sm font-extrabold m-0" style={{ color: TEXT }}>Certificates, awards & achievements</h3>
+              <button type="button" className="text-xs font-bold px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50" onClick={() => setAchievementRows((rows) => [...rows, {}])}>+ Add entry</button>
             </div>
             <p className="text-xs text-gray-400 m-0">Optional — licenses, board certifications, prizes, etc.</p>
             {achievementRows.length === 0 && <p className="text-xs text-gray-400 m-0">No entries — click Add entry.</p>}
             {achievementRows.map((row, idx) => (
               <div key={idx} className="rounded-xl border border-gray-100 p-3 space-y-2 bg-gray-50/80">
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    className="text-xs font-semibold text-red-600 hover:underline"
-                    onClick={() => setAchievementRows((rows) => rows.filter((_, i) => i !== idx))}
-                  >
-                    Remove
-                  </button>
-                </div>
-                <input
-                  className="w-full rounded-lg border border-gray-200 px-2 py-2 text-sm"
-                  placeholder="Title"
-                  value={row.title ?? ""}
-                  onChange={(e) => {
-                    const next = [...achievementRows];
-                    next[idx] = { ...row, title: e.target.value };
-                    setAchievementRows(next);
-                  }}
-                />
-                <input
-                  className="w-full rounded-lg border border-gray-200 px-2 py-2 text-sm"
-                  placeholder="Issuing organization"
-                  value={row.issuer ?? ""}
-                  onChange={(e) => {
-                    const next = [...achievementRows];
-                    next[idx] = { ...row, issuer: e.target.value };
-                    setAchievementRows(next);
-                  }}
-                />
-                <input
-                  type="number"
-                  className="w-full rounded-lg border border-gray-200 px-2 py-2 text-sm"
-                  placeholder="Year"
-                  value={row.year === undefined || row.year === null ? "" : row.year}
-                  onChange={(e) => {
-                    const next = [...achievementRows];
-                    const v = e.target.value;
-                    next[idx] = { ...row, year: v === "" ? undefined : Number(v) };
-                    setAchievementRows(next);
-                  }}
-                />
-                <textarea
-                  className="w-full rounded-lg border border-gray-200 px-2 py-2 text-sm min-h-[56px]"
-                  placeholder="Short description (optional)"
-                  value={row.description ?? ""}
-                  onChange={(e) => {
-                    const next = [...achievementRows];
-                    next[idx] = { ...row, description: e.target.value };
-                    setAchievementRows(next);
-                  }}
-                />
+                <div className="flex justify-end"><button type="button" className="text-xs font-semibold text-red-600 hover:underline" onClick={() => setAchievementRows((rows) => rows.filter((_, i) => i !== idx))}>Remove</button></div>
+                <input className="w-full rounded-lg border border-gray-200 px-2 py-2 text-sm" placeholder="Title" value={row.title ?? ""} onChange={(e) => { const next = [...achievementRows]; next[idx] = { ...row, title: e.target.value }; setAchievementRows(next); }} />
+                <input className="w-full rounded-lg border border-gray-200 px-2 py-2 text-sm" placeholder="Issuing organization" value={row.issuer ?? ""} onChange={(e) => { const next = [...achievementRows]; next[idx] = { ...row, issuer: e.target.value }; setAchievementRows(next); }} />
+                <input type="number" className="w-full rounded-lg border border-gray-200 px-2 py-2 text-sm" placeholder="Year" value={row.year === undefined || row.year === null ? "" : row.year} onChange={(e) => { const next = [...achievementRows]; const v = e.target.value; next[idx] = { ...row, year: v === "" ? undefined : Number(v) }; setAchievementRows(next); }} />
+                <textarea className="w-full rounded-lg border border-gray-200 px-2 py-2 text-sm min-h-[56px]" placeholder="Short description (optional)" value={row.description ?? ""} onChange={(e) => { const next = [...achievementRows]; next[idx] = { ...row, description: e.target.value }; setAchievementRows(next); }} />
               </div>
             ))}
           </div>
 
+          {errorMsg && <p className="text-sm font-semibold text-red-600">{errorMsg}</p>}
+
           <p className="text-xs text-gray-500 m-0">
-            Profile data is saved locally if the server is unavailable; align field names with your backend when ready.
+            Account data saves to API. Professional data saves locally.
           </p>
           <div className="flex gap-3 pt-2">
             <button
@@ -1516,7 +1416,7 @@ function EditProfileModal({
               className="flex-1 py-3 rounded-xl font-bold text-white disabled:opacity-60"
               style={{ background: `linear-gradient(135deg, ${PRIMARY}, ${SECONDARY})` }}
             >
-              {saving ? "Saving…" : "Save"}
+              {saving ? "Saving…" : "Save changes"}
             </button>
           </div>
         </form>

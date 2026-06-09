@@ -15,6 +15,7 @@ export interface AiHistoryItem {
   analyzedAt?: string;
   patientId?: number;
   patientName?: string;
+  notes?: string;
 }
 
 export interface AiAnalysisResult {
@@ -81,17 +82,26 @@ export const aiService = {
       return getMockAiHistoryForPatient(patientId);
     }
     try {
-      const { data } = await axiosInstance.get<ApiResponse<AiHistoryItem[]>>(
-        `/api/AI/patient/${patientId}`
-      );
-      const raw = unwrapApiDataOptional(data);
-      if (Array.isArray(raw)) return raw;
-      if (raw && typeof raw === "object") {
-        const obj = raw as Record<string, unknown>;
-        const list = obj.analyses ?? obj.aiHistory ?? obj.data;
-        if (Array.isArray(list)) return list as AiHistoryItem[];
+      const res = await axiosInstance.get(`/api/AI/patient/${patientId}`);
+      let list: any[] = [];
+      if (Array.isArray(res.data)) {
+        list = res.data;
+      } else if (res.data?.data && Array.isArray(res.data.data)) {
+        list = res.data.data;
+      } else if (res.data?.aiHistory && Array.isArray(res.data.aiHistory)) {
+        list = res.data.aiHistory;
       }
-      return [];
+      
+      return list.map((item: any) => ({
+        imageId: item.id || item.imageId,
+        originalFileName: item.originalFileName,
+        patientId: item.patientId,
+        label: item.output?.classification || item.label,
+        probability: item.output?.confidence || item.probability,
+        isCancerous: item.output?.classification === 'cancerous' || item.isCancerous || false,
+        analyzedAt: item.output?.processedAt || item.uploadedAt || item.analyzedAt,
+        notes: item.notes
+      }));
     } catch (error) {
       throw new Error(await parseServiceError(error));
     }
@@ -108,6 +118,16 @@ export const aiService = {
 
   getImageFileUrl(id: number): string {
     return apiUrl(`/api/AI/image/${id}/file`);
+  },
+
+  async fetchImageBlobUrl(id: number): Promise<string> {
+    const token = readAuthToken();
+    const res = await fetch(apiUrl(`/api/AI/image/${id}/file`), {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error("Failed to fetch image");
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
   },
 };
 

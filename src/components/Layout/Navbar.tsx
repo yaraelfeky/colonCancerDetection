@@ -16,7 +16,10 @@ import {
 import {
   getUnreadNotificationCount,
   NOTIFICATIONS_UNREAD_EVENT,
+  addUnreadNotifications,
 } from "../../utils/notificationsUnread";
+import { notificationHub } from "../../services/notificationHub";
+import type { NotificationDto } from "../../services/notificationService";
 
 
 const navLinks = [
@@ -46,6 +49,7 @@ const Navbar: React.FC = () => {
   const [doctorUiTick, setDoctorUiTick] = useState(0);
   const [notifTick, setNotifTick] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [toastMsg, setToastMsg] = useState<{ title?: string; message?: string } | null>(null);
 
   // const navigate = useNavigate();
 
@@ -95,6 +99,28 @@ const handleStartDiagnosis = () => {
     );
   };
 }, []);
+
+  useEffect(() => {
+    if (!toastMsg) return;
+    const t = window.setTimeout(() => setToastMsg(null), 4000);
+    return () => window.clearTimeout(t);
+  }, [toastMsg]);
+
+  useEffect(() => {
+    const handleNotification = (notification: NotificationDto) => {
+      setToastMsg({
+        title: notification.title || "New Notification",
+        message: notification.message || notification.body || "You have a new message.",
+      });
+      addUnreadNotifications(1);
+    };
+    notificationHub.addListener(handleNotification);
+    void notificationHub.start();
+
+    return () => {
+      notificationHub.removeListener(handleNotification);
+    };
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -523,6 +549,28 @@ const handleStartDiagnosis = () => {
           </div>
         </Container>
       </div>
+      
+      {/* Real-time Notification Toast */}
+      {toastMsg && (
+        <div className="fixed top-24 right-4 z-[100] max-w-sm rounded-xl border border-blue-200 bg-white p-4 shadow-xl transition-all animate-in slide-in-from-top-2 fade-in">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-slate-900 m-0">{toastMsg.title}</h4>
+              <p className="mt-1 text-xs text-slate-600 m-0">{toastMsg.message}</p>
+            </div>
+            <button type="button" onClick={() => setToastMsg(null)} className="ml-auto p-1 text-slate-400 hover:text-slate-600">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

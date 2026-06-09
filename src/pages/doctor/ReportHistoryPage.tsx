@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect, useCallback } from "react";
 import Navbar from "../../components/Layout/Navbar";
 import Footer from "../../components/Layout/Footer";
 import Container from "../../components/Layout/Container";
-import { loadAllAiReports } from "../../services/aiService";
+import { loadAllAiReports, aiService } from "../../services/aiService";
 import { patientService } from "../../services/patientService";
 import { getAxiosErrorMessage } from "../../utils/axiosError";
 import ScrollReveal from "../../components/ScrollReveal";
@@ -26,6 +26,7 @@ interface Report {
   recommendations: string;
   doctorNotes: string;
   extraInfo?: string;
+  imageId?: number;
 }
 
 type SortOrder = "Newest" | "Oldest";
@@ -51,6 +52,34 @@ const statusBadgeClasses: Record<ReportStatus, string> = {
   Pending: "bg-amber-100 text-amber-700 border-amber-200",
 };
 
+const AuthenticatedImage = ({ imageId }: { imageId: number }) => {
+  const [src, setSrc] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    aiService.fetchImageBlobUrl(imageId)
+      .then(url => {
+        if (active) setSrc(url);
+      })
+      .catch(() => {
+        if (active) setError(true);
+      });
+    return () => { active = false; };
+  }, [imageId]);
+
+  if (error) return <p className="mt-2 text-sm text-red-500">Failed to load image</p>;
+  if (!src) return <div className="mt-2 h-32 w-32 animate-pulse rounded bg-slate-200"></div>;
+
+  return (
+    <img 
+      src={src} 
+      alt="AI Scan" 
+      className="mt-3 max-h-64 rounded-lg object-contain border border-slate-200 bg-white"
+    />
+  );
+};
+
 const ReportHistoryPage: React.FC = () => {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,22 +94,36 @@ const ReportHistoryPage: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<SortOrder>("Newest");
   const [activeReport, setActiveReport] = useState<Report | null>(null);
 
+  const [patients, setPatients] = useState<{ id: string | number; name: string }[]>([]);
+  const [selectedPatientId, setSelectedPatientId] = useState<string>("");
+
+  const loadPatients = useCallback(async () => {
+    try {
+      const list = await patientService.getMyPatients();
+      setPatients(list || []);
+    } catch {
+      setPatients([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadPatients();
+  }, [loadPatients]);
+
   const loadReports = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
-      // const patients = await patientService.getMyPatients();
-      const patients = (await patientService.getMyPatients()) || [];
-      const aiItems = await loadAllAiReports(patients);
-      const mapped: Report[] = patients.map((p) => {
-        const ai = aiItems.find(a => String(a.patientId) === String(p.id));
-        if (ai) {
-          return {
+      if (selectedPatientId) {
+        const patient = patients.find(p => String(p.id) === selectedPatientId);
+        if (patient) {
+          const aiItems = await aiService.getPatientHistory(Number(selectedPatientId));
+          const mapped: Report[] = aiItems.map((ai) => ({
             id: `AI-${ai.imageId}`,
-            patient: { id: String(p.id), name: p.name },
+            patient: { id: String(patient.id), name: patient.name },
             date: ai.analyzedAt?.split("T")[0] ?? new Date().toISOString().split("T")[0],
             type: "Diagnosis" as ReportType,
-            status: ai.isCancerous ? "Completed" : "Completed",
+            status: "Completed",
             summary: ai.isCancerous
               ? `Suspicious finding (${Math.round((ai.probability ?? 0) * 100)}% confidence)`
               : `Normal tissue (${Math.round((ai.probability ?? 0) * 100)}% confidence)`,
@@ -88,37 +131,76 @@ const ReportHistoryPage: React.FC = () => {
             recommendations: ai.isCancerous
               ? "Review with patient and schedule follow-up as needed."
               : "Continue routine surveillance.",
-            doctorNotes: ai.originalFileName ?? "",
-          };
-        } else {
-          return {
-            id: `PT-${p.id}`,
-            patient: { id: String(p.id), name: p.name },
-            date: new Date().toISOString().split("T")[0],
-            type: "Follow-up" as ReportType,
-            // status: "Pending",
-            summary: "No AI analysis available yet.",
-            diagnosis: "Pending evaluation",
-            recommendations: "Schedule initial screening or upload imaging.",
-            doctorNotes: "",
-            extraInfo: "Patient data loaded from doctor's list.",
-          };
+            doctorNotes: ai.notes || ai.originalFileName || "",
+            imageId: ai.imageId
+          }));
+          setReports(mapped);
         }
-      });
-      setReports(mapped);
+      } else {
+        const patientList = patients.length > 0 ? patients : (await patientService.getMyPatients() || []);
+        const aiItems = await loadAllAiReports(patientList);
+        const mapped: Report[] = patientList.map((p) => {
+          const ai = aiItems.find(a => String(a.patientId) === String(p.id));
+          if (ai) {
+            return {
+              id: `AI-${ai.imageId}`,
+              patient: { id: String(p.id), name: p.name },
+              date: ai.analyzedAt?.split("T")[0] ?? new Date().toISOString().split("T")[0],
+              type: "Diagnosis" as ReportType,
+              status: "Completed",
+              summary: ai.isCancerous
+                ? `Suspicious finding (${Math.round((ai.probability ?? 0) * 100)}% confidence)`
+                : `Normal tissue (${Math.round((ai.probability ?? 0) * 100)}% confidence)`,
+              diagnosis: ai.label ?? (ai.isCancerous ? "cancerous" : "normal"),
+              recommendations: ai.isCancerous
+                ? "Review with patient and schedule follow-up as needed."
+                : "Continue routine surveillance.",
+              doctorNotes: ai.notes || ai.originalFileName || "",
+              imageId: ai.imageId
+            };
+          } else {
+            return {
+              id: `PT-${p.id}`,
+              patient: { id: String(p.id), name: p.name },
+              date: new Date().toISOString().split("T")[0],
+              type: "Follow-up" as ReportType,
+              status: "Pending",
+              summary: "No AI analysis available yet.",
+              diagnosis: "Pending evaluation",
+              recommendations: "Schedule initial screening or upload imaging.",
+              doctorNotes: "",
+              extraInfo: "Patient data loaded from doctor's list.",
+            };
+          }
+        });
+        setReports(mapped);
+      }
     } catch (err) {
       setLoadError(getAxiosErrorMessage(err));
       setReports([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [patients, selectedPatientId]);
 
   useEffect(() => {
     void loadReports();
   }, [loadReports]);
 
-  const downloadReportPdf = (report: Report) => {
+  const downloadReportPdf = async (report: Report) => {
+    const win = window.open('', '_blank');
+    if (!win) { window.alert('Please allow pop-ups to download PDFs.'); return; }
+
+    let imgHtml = '';
+    if (report.imageId) {
+      try {
+        const blobUrl = await aiService.fetchImageBlobUrl(report.imageId);
+        imgHtml = `<section><h2>Scanned Image</h2><img src="${blobUrl}" style="max-width: 100%; max-height: 400px; border-radius: 8px; border: 1px solid #e2e8f0; margin-top: 8px;" /></section>`;
+      } catch {
+        imgHtml = `<section><h2>Scanned Image</h2><p>Failed to load image.</p></section>`;
+      }
+    }
+
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Report ${report.id}</title>
 <style>
 body{font-family:Arial,sans-serif;margin:32px;color:#1a202c;}
@@ -138,13 +220,12 @@ p{font-size:13px;line-height:1.6;color:#4a5568;margin:0;}
 <section><h2>Recommendations</h2><p>${report.recommendations}</p></section>
 <section><h2>Doctor Notes</h2><p>${report.doctorNotes || '—'}</p></section>
 ${report.extraInfo ? `<section><h2>Additional Medical Info</h2><p>${report.extraInfo}</p></section>` : ''}
+${imgHtml}
 </body></html>`;
-    const win = window.open('', '_blank');
-    if (!win) { window.alert('Please allow pop-ups to download PDFs.'); return; }
     win.document.write(html);
     win.document.close();
     win.focus();
-    setTimeout(() => { win.print(); }, 400);
+    setTimeout(() => { win.print(); }, 800);
   };
 
   const filteredReports = useMemo(() => {
@@ -200,10 +281,21 @@ ${report.extraInfo ? `<section><h2>Additional Medical Info</h2><p>${report.extra
               className="mb-6 rounded-2xl bg-white p-5"
               style={{ boxShadow: "0 6px 24px rgba(0,0,0,0.06)" }}
             >
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+                <select
+                  value={selectedPatientId}
+                  onChange={(e) => setSelectedPatientId(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none ring-[#1E88E5]/20 transition focus:ring-2"
+                >
+                  <option value="">All Patients</option>
+                  {patients.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+
                 <input
                   type="text"
-                  placeholder="Search by patient name..."
+                  placeholder="Search..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none ring-[#1E88E5]/20 transition focus:ring-2"
@@ -380,6 +472,13 @@ ${report.extraInfo ? `<section><h2>Additional Medical Info</h2><p>${report.extra
                   {activeReport.extraInfo || "No additional information provided."}
                 </p>
               </div>
+
+              {activeReport.imageId && (
+                <div className="rounded-lg bg-slate-50 p-3 md:col-span-2">
+                  <h4 className="text-sm font-semibold text-slate-800">Scanned Image</h4>
+                  <AuthenticatedImage imageId={activeReport.imageId} />
+                </div>
+              )}
             </div>
             <div className="mt-4 flex justify-end">
               <button

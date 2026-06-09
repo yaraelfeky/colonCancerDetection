@@ -551,11 +551,16 @@ export default function NotificationsPage() {
   }, [loadNotifications]);
 
   useEffect(() => {
-    void notificationHub.start((notification) => {
+    const handleNotification = (notification: NotificationDto) => {
       setNotifications((prev) => [notification, ...prev]);
       addUnreadNotifications(1);
-    });
-    return () => { void notificationHub.stop(); };
+    };
+    notificationHub.addListener(handleNotification);
+    void notificationHub.start();
+
+    return () => {
+      notificationHub.removeListener(handleNotification);
+    };
   }, []);
 
   const handleMarkRead = async (id: number) => {

@@ -133,7 +133,7 @@ export const medicalRecordService = {
     try {
       const data = await apiRequest<MedicalRecordState>(undefined, () =>
         axiosInstance.get<ApiResponse<MedicalRecordState>>(
-          `${BASE}/patient/${patientId}`
+          `${BASE}/${patientId}`
         )
       );
       const unwrapped = unwrapApiDataOptional(data);
@@ -153,7 +153,7 @@ export const medicalRecordService = {
     try {
       const data = await apiRequest<MedicalRecordState>(undefined, () =>
         axiosInstance.get<ApiResponse<MedicalRecordState>>(
-          `${BASE}/patient/${patientId}/pending`
+          `${BASE}/${patientId}/pending`
         )
       );
       const unwrapped = unwrapApiDataOptional(data);

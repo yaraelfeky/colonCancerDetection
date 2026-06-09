@@ -19,7 +19,12 @@ import {
   Shield,
   Trash2,
   Loader2,
+  FileText,
+  Phone,
+  Calendar,
+  Image as ImageIcon
 } from "lucide-react";
+import { doctorService } from "../services/doctorService";
 
 type ToastVariant = "success" | "error";
 
@@ -93,6 +98,50 @@ const SettingsPage: React.FC = () => {
       setEmailSubmitting(false);
     }
   };
+
+  // --- Account: Doctor Profile ---
+  const [profileForm, setProfileForm] = useState({
+    UserName: doctorProfile?.userName || user?.userName || "",
+    Email: doctorProfile?.email || user?.email || "",
+    PhoneNumber: doctorProfile?.phoneNumber || "",
+    ProfessionalPracticeLicense: doctorProfile?.professionalPracticeLicense || "",
+    IssuingAuthority: doctorProfile?.issuingAuthority || "",
+    LicenseExpirationDate: doctorProfile?.licenseExpirationDate ? doctorProfile.licenseExpirationDate.split("T")[0] : "",
+  });
+  const [profileImage, setProfileImage] = useState<File | null>(null);
+  const [profileSubmitting, setProfileSubmitting] = useState(false);
+  const [profileError, setProfileError] = useState("");
+
+  const handleProfileSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setProfileError("");
+    setProfileSubmitting(true);
+    
+    try {
+      const formData = new FormData();
+      if (profileImage) {
+        formData.append("Image", profileImage);
+      }
+      formData.append("UserName", profileForm.UserName);
+      formData.append("Email", profileForm.Email);
+      formData.append("PhoneNumber", profileForm.PhoneNumber);
+      formData.append("ProfessionalPracticeLicense", profileForm.ProfessionalPracticeLicense);
+      formData.append("IssuingAuthority", profileForm.IssuingAuthority);
+      if (profileForm.LicenseExpirationDate) {
+        formData.append("LicenseExpirationDate", profileForm.LicenseExpirationDate);
+      }
+
+      await doctorService.updateDoctorFormData(formData);
+      showToast("Profile updated successfully.");
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (err) {
+      setProfileError(getAxiosErrorMessage(err));
+      showToast(getAxiosErrorMessage(err), "error");
+    } finally {
+      setProfileSubmitting(false);
+    }
+  };
+
 
   // --- Account: Username ---
   const [newUsername, setNewUsername] = useState("");
@@ -297,99 +346,249 @@ const SettingsPage: React.FC = () => {
 
                   <div className="p-5 md:p-6">
                     <div className="grid gap-8 md:grid-cols-2">
-                      <form onSubmit={handleUsernameSubmit} className="space-y-4">
-                        <div className="flex items-center gap-2 text-slate-800">
-                          <User size={18} className="text-[#2b7fff]" aria-hidden />
-                          <h3 className="text-sm font-semibold">Update username</h3>
-                        </div>
-                        <div>
-                          <label
-                            className="mb-1 block text-sm font-medium text-slate-700"
-                            htmlFor="newUsername"
-                          >
-                            New username
-                          </label>
-                          <input
-                            id="newUsername"
-                            type="text"
-                            className={inputClass(!!usernameFieldError)}
-                            placeholder="Enter new username"
-                            value={newUsername}
-                            onChange={(e) => {
-                              setNewUsername(e.target.value);
-                              setUsernameFieldError("");
-                            }}
-                            disabled={usernameSubmitting}
-                            autoComplete="username"
-                          />
-                          {usernameFieldError && (
-                            <p className="mt-1 flex items-center gap-1 text-sm text-red-600">
-                              <AlertCircle size={14} aria-hidden />
-                              {usernameFieldError}
-                            </p>
-                          )}
-                        </div>
-                        <button
-                          type="submit"
-                          disabled={usernameSubmitting}
-                          className={primaryBtnClass}
-                          style={{ backgroundColor: "var(--primary, #2b7fff)" }}
-                        >
-                          {usernameSubmitting ? (
-                            <Loader2 size={18} className="animate-spin" />
-                          ) : (
-                            <Save size={18} aria-hidden />
-                          )}
-                          {usernameSubmitting ? "Saving…" : "Save username"}
-                        </button>
-                      </form>
+                      {doctorProfile ? (
+                        <form onSubmit={handleProfileSubmit} className="col-span-1 md:col-span-2 space-y-4">
+                          <div className="flex items-center gap-2 text-slate-800">
+                            <User size={18} className="text-[#2b7fff]" aria-hidden />
+                            <h3 className="text-sm font-semibold">Update Doctor Profile</h3>
+                          </div>
+                          
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <div>
+                              <label className="mb-1 block text-sm font-medium text-slate-700">Username</label>
+                              <div className="relative">
+                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                  <User className="h-4 w-4 text-slate-400" />
+                                </div>
+                                <input
+                                  type="text"
+                                  className={`${inputClass(false)} pl-10`}
+                                  value={profileForm.UserName}
+                                  onChange={(e) => setProfileForm({ ...profileForm, UserName: e.target.value })}
+                                  disabled={profileSubmitting}
+                                />
+                              </div>
+                            </div>
+                            
+                            <div>
+                              <label className="mb-1 block text-sm font-medium text-slate-700">Email</label>
+                              <div className="relative">
+                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                  <Mail className="h-4 w-4 text-slate-400" />
+                                </div>
+                                <input
+                                  type="email"
+                                  className={`${inputClass(false)} pl-10`}
+                                  value={profileForm.Email}
+                                  onChange={(e) => setProfileForm({ ...profileForm, Email: e.target.value })}
+                                  disabled={profileSubmitting}
+                                />
+                              </div>
+                            </div>
 
-                      <form onSubmit={handleEmailSubmit} className="space-y-4">
-                        <div className="flex items-center gap-2 text-slate-800">
-                          <Mail size={18} className="text-[#2b7fff]" aria-hidden />
-                          <h3 className="text-sm font-semibold">Update email</h3>
-                        </div>
-                        <div>
-                          <label
-                            className="mb-1 block text-sm font-medium text-slate-700"
-                            htmlFor="newEmail"
-                          >
-                            New email
-                          </label>
-                          <input
-                            id="newEmail"
-                            type="email"
-                            className={inputClass(!!emailFieldError)}
-                            placeholder="Enter new email address"
-                            value={newEmail}
-                            onChange={(e) => {
-                              setNewEmail(e.target.value);
-                              setEmailFieldError("");
-                            }}
-                            disabled={emailSubmitting}
-                            autoComplete="email"
-                          />
-                          {emailFieldError && (
+                            <div>
+                              <label className="mb-1 block text-sm font-medium text-slate-700">Phone Number</label>
+                              <div className="relative">
+                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                  <Phone className="h-4 w-4 text-slate-400" />
+                                </div>
+                                <input
+                                  type="text"
+                                  className={`${inputClass(false)} pl-10`}
+                                  value={profileForm.PhoneNumber}
+                                  onChange={(e) => setProfileForm({ ...profileForm, PhoneNumber: e.target.value })}
+                                  disabled={profileSubmitting}
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="mb-1 block text-sm font-medium text-slate-700">Profile Image</label>
+                              <div className="relative">
+                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                  <ImageIcon className="h-4 w-4 text-slate-400" />
+                                </div>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className={`${inputClass(false)} pl-10 pt-2`}
+                                  onChange={(e) => {
+                                    if (e.target.files && e.target.files.length > 0) {
+                                      setProfileImage(e.target.files[0]);
+                                    }
+                                  }}
+                                  disabled={profileSubmitting}
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="mb-1 block text-sm font-medium text-slate-700">Professional Practice License</label>
+                              <div className="relative">
+                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                  <FileText className="h-4 w-4 text-slate-400" />
+                                </div>
+                                <input
+                                  type="text"
+                                  className={`${inputClass(false)} pl-10`}
+                                  value={profileForm.ProfessionalPracticeLicense}
+                                  onChange={(e) => setProfileForm({ ...profileForm, ProfessionalPracticeLicense: e.target.value })}
+                                  disabled={profileSubmitting}
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="mb-1 block text-sm font-medium text-slate-700">Issuing Authority</label>
+                              <div className="relative">
+                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                  <Shield className="h-4 w-4 text-slate-400" />
+                                </div>
+                                <input
+                                  type="text"
+                                  className={`${inputClass(false)} pl-10`}
+                                  value={profileForm.IssuingAuthority}
+                                  onChange={(e) => setProfileForm({ ...profileForm, IssuingAuthority: e.target.value })}
+                                  disabled={profileSubmitting}
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="mb-1 block text-sm font-medium text-slate-700">License Expiration Date</label>
+                              <div className="relative">
+                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                  <Calendar className="h-4 w-4 text-slate-400" />
+                                </div>
+                                <input
+                                  type="date"
+                                  className={`${inputClass(false)} pl-10`}
+                                  value={profileForm.LicenseExpirationDate}
+                                  onChange={(e) => setProfileForm({ ...profileForm, LicenseExpirationDate: e.target.value })}
+                                  disabled={profileSubmitting}
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {profileError && (
                             <p className="mt-1 flex items-center gap-1 text-sm text-red-600">
                               <AlertCircle size={14} aria-hidden />
-                              {emailFieldError}
+                              {profileError}
                             </p>
                           )}
-                        </div>
-                        <button
-                          type="submit"
-                          disabled={emailSubmitting}
-                          className={primaryBtnClass}
-                          style={{ backgroundColor: "var(--primary, #2b7fff)" }}
-                        >
-                          {emailSubmitting ? (
-                            <Loader2 size={18} className="animate-spin" />
-                          ) : (
-                            <Save size={18} aria-hidden />
-                          )}
-                          {emailSubmitting ? "Saving…" : "Save email"}
-                        </button>
-                      </form>
+
+                          <button
+                            type="submit"
+                            disabled={profileSubmitting}
+                            className={primaryBtnClass}
+                            style={{ backgroundColor: "var(--primary, #2b7fff)" }}
+                          >
+                            {profileSubmitting ? (
+                              <Loader2 size={18} className="animate-spin" />
+                            ) : (
+                              <Save size={18} aria-hidden />
+                            )}
+                            {profileSubmitting ? "Saving…" : "Save Profile"}
+                          </button>
+                        </form>
+                      ) : (
+                        <>
+                          <form onSubmit={handleUsernameSubmit} className="space-y-4">
+                            <div className="flex items-center gap-2 text-slate-800">
+                              <User size={18} className="text-[#2b7fff]" aria-hidden />
+                              <h3 className="text-sm font-semibold">Update username</h3>
+                            </div>
+                            <div>
+                              <label
+                                className="mb-1 block text-sm font-medium text-slate-700"
+                                htmlFor="newUsername"
+                              >
+                                New username
+                              </label>
+                              <input
+                                id="newUsername"
+                                type="text"
+                                className={inputClass(!!usernameFieldError)}
+                                placeholder="Enter new username"
+                                value={newUsername}
+                                onChange={(e) => {
+                                  setNewUsername(e.target.value);
+                                  setUsernameFieldError("");
+                                }}
+                                disabled={usernameSubmitting}
+                                autoComplete="username"
+                              />
+                              {usernameFieldError && (
+                                <p className="mt-1 flex items-center gap-1 text-sm text-red-600">
+                                  <AlertCircle size={14} aria-hidden />
+                                  {usernameFieldError}
+                                </p>
+                              )}
+                            </div>
+                            <button
+                              type="submit"
+                              disabled={usernameSubmitting}
+                              className={primaryBtnClass}
+                              style={{ backgroundColor: "var(--primary, #2b7fff)" }}
+                            >
+                              {usernameSubmitting ? (
+                                <Loader2 size={18} className="animate-spin" />
+                              ) : (
+                                <Save size={18} aria-hidden />
+                              )}
+                              {usernameSubmitting ? "Saving…" : "Save username"}
+                            </button>
+                          </form>
+
+                          <form onSubmit={handleEmailSubmit} className="space-y-4">
+                            <div className="flex items-center gap-2 text-slate-800">
+                              <Mail size={18} className="text-[#2b7fff]" aria-hidden />
+                              <h3 className="text-sm font-semibold">Update email</h3>
+                            </div>
+                            <div>
+                              <label
+                                className="mb-1 block text-sm font-medium text-slate-700"
+                                htmlFor="newEmail"
+                              >
+                                New email
+                              </label>
+                              <input
+                                id="newEmail"
+                                type="email"
+                                className={inputClass(!!emailFieldError)}
+                                placeholder="Enter new email address"
+                                value={newEmail}
+                                onChange={(e) => {
+                                  setNewEmail(e.target.value);
+                                  setEmailFieldError("");
+                                }}
+                                disabled={emailSubmitting}
+                                autoComplete="email"
+                              />
+                              {emailFieldError && (
+                                <p className="mt-1 flex items-center gap-1 text-sm text-red-600">
+                                  <AlertCircle size={14} aria-hidden />
+                                  {emailFieldError}
+                                </p>
+                              )}
+                            </div>
+                            <button
+                              type="submit"
+                              disabled={emailSubmitting}
+                              className={primaryBtnClass}
+                              style={{ backgroundColor: "var(--primary, #2b7fff)" }}
+                            >
+                              {emailSubmitting ? (
+                                <Loader2 size={18} className="animate-spin" />
+                              ) : (
+                                <Save size={18} aria-hidden />
+                              )}
+                              {emailSubmitting ? "Saving…" : "Save email"}
+                            </button>
+                          </form>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>

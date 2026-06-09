@@ -641,14 +641,6 @@ const MedicalRecordPage: React.FC = () => {
       >
         Edit
       </button>
-      <button
-        type="button"
-        disabled={saving}
-        onClick={() => void handleDelete(tab, Number(entry.id))}
-        className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-800 hover:bg-red-100 disabled:opacity-50"
-      >
-        Delete
-      </button>
     </div>
   );
 

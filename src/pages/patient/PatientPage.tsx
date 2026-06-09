@@ -58,6 +58,7 @@ import {
 import { aiService, type AiHistoryItem } from "../../services/aiService";
 import { medicalRecordService, type MedicalRecordSection, type MedicalRecordState } from "../../services/medicalRecordService";
 import { medicationService } from "../../services/medicationService";
+import { notificationHub } from "../../services/notificationHub";
 import {
   normalizePrescription,
   prescriptionService,
@@ -155,7 +156,7 @@ export interface PatientDetailPageProps {
   onBack?: () => void;
 }
 
-type TabId = "overview" | "medical" | "ai" | "requests" | "prescriptions" | "appointments";
+type TabId = "overview" | "medical" | "ai" | "doctorRequests" | "patientRequests" | "prescriptions" | "appointments";
 
 
 
@@ -173,6 +174,7 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
   const [aiHistory, setAiHistory] = useState<AiHistoryItem[]>([]);
   const [medical, setMedical] = useState<Required<MedicalRecordState> | null>(null);
   const [requests, setRequests] = useState<DoctorRequestDto[]>([]);
+  const [incomingRequests, setIncomingRequests] = useState<DoctorRequestDto[]>([]);
   const [prescriptions, setPrescriptions] = useState<ReturnType<typeof normalizePrescription>[]>([]);
 
   // ── Doctor Request CRUD state ─────────────────────────────────────────
@@ -292,8 +294,9 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
       const requestsPromise = doctorRequestService.list().then((drList) =>
         drList.filter((r) => String(r.patientId) === String(patientId))
       ).catch(() => [] as DoctorRequestDto[]);
+      const incomingRequestsPromise = doctorRequestService.listIncoming().catch(() => [] as DoctorRequestDto[]);
 
-      const [profile, aiData, approvedMr, pendingMr, meds, rxList, requestList] = await Promise.all([
+      const [profile, aiData, approvedMr, pendingMr, meds, rxList, requestList, incomingList] = await Promise.all([
         profilePromise,
         aiPromise,
         mrPromise,
@@ -301,6 +304,7 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
         medsPromise,
         rxPromise,
         requestsPromise,
+        incomingRequestsPromise,
       ]);
 
       if (!profile) {
@@ -309,6 +313,7 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
         setMedical(null);
         setAiHistory([]);
         setRequests([]);
+        setIncomingRequests([]);
         return;
       }
 
@@ -334,12 +339,14 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
       setMedical(medicalData);
       setPrescriptions(rxList.map(normalizePrescription));
       setRequests(requestList);
+      setIncomingRequests(incomingList);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Failed to load patient");
       setPatient(null);
       setMedical(null);
       setAiHistory([]);
       setRequests([]);
+      setIncomingRequests([]);
     } finally {
       setLoading(false);
     }
@@ -348,6 +355,23 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  const fetchIncoming = useCallback(async () => {
+    try {
+      const list = await doctorRequestService.listIncoming();
+      setIncomingRequests(list.filter((r) => String(r.patientId) === String(patientId)));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [patientId]);
+
+  useEffect(() => {
+    const handleNotif = () => {
+      void fetchIncoming();
+    };
+    notificationHub.addListener(handleNotif);
+    return () => notificationHub.removeListener(handleNotif);
+  }, [fetchIncoming]);
 
   const toggleSection = (s: MedicalSection) => {
     setOpenSections((prev) => ({ ...prev, [s]: !prev[s] }));
@@ -563,16 +587,8 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
     if (!addAllergyForm.name.trim()) { setToast("Name is required."); return; }
     setAddSaving(true);
     try {
-      const result: any = await medicalRecordService.addAllergy(patientId, addAllergyForm);
-      const newItem = {
-        id: result?.id ?? result?.data?.id ?? Date.now(),
-        name: addAllergyForm.name,
-        severity: addAllergyForm.severity,
-        reaction: addAllergyForm.reaction,
-        status: 0,
-        isPending: true,
-      };
-      setMedical(prev => prev ? { ...prev, allergies: [...prev.allergies, newItem] } : prev);
+      await medicalRecordService.addAllergy(patientId, addAllergyForm);
+      await refreshMedical();
       setAddAllergyForm({ name: "", severity: "", reaction: "" });
       setAddAllergyOpen(false);
       setToast("Allergy added.");
@@ -584,18 +600,8 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
     if (!addVisitForm.date.trim()) { setToast("Date is required."); return; }
     setAddSaving(true);
     try {
-      const result: any = await medicalRecordService.addVisit(patientId, addVisitForm);
-      const newItem = {
-        id: result?.id ?? result?.data?.id ?? Date.now(),
-        date: addVisitForm.date,
-        doctorName: addVisitForm.doctorName,
-        reasonForVisit: addVisitForm.reasonForVisit,
-        diagnosis: addVisitForm.diagnosis,
-        treatmentPlan: addVisitForm.treatmentPlan,
-        status: 0,
-        isPending: true,
-      };
-      setMedical(prev => prev ? { ...prev, visits: [...prev.visits, newItem] } : prev);
+      await medicalRecordService.addVisit(patientId, addVisitForm);
+      await refreshMedical();
       setAddVisitForm({ date: "", doctorName: "", reasonForVisit: "", diagnosis: "", treatmentPlan: "" });
       setAddVisitOpen(false);
       setToast("Visit added.");
@@ -607,16 +613,8 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
     if (!addSurgeryForm.name.trim()) { setToast("Name is required."); return; }
     setAddSaving(true);
     try {
-      const result: any = await medicalRecordService.addSurgery(patientId, addSurgeryForm);
-      const newItem = {
-        id: result?.id ?? result?.data?.id ?? Date.now(),
-        name: addSurgeryForm.name,
-        date: addSurgeryForm.date,
-        outcome: addSurgeryForm.outcome,
-        status: 0,
-        isPending: true,
-      };
-      setMedical(prev => prev ? { ...prev, surgeries: [...prev.surgeries, newItem] } : prev);
+      await medicalRecordService.addSurgery(patientId, addSurgeryForm);
+      await refreshMedical();
       setAddSurgeryForm({ name: "", date: "", outcome: "" });
       setAddSurgeryOpen(false);
       setToast("Surgery added.");
@@ -628,16 +626,8 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
     if (!addTestForm.name.trim()) { setToast("Name is required."); return; }
     setAddSaving(true);
     try {
-      const result: any = await medicalRecordService.addTest(patientId, addTestForm);
-      const newItem = {
-        id: result?.id ?? result?.data?.id ?? Date.now(),
-        name: addTestForm.name,
-        date: addTestForm.date,
-        result: addTestForm.result,
-        status: 0,
-        isPending: true,
-      };
-      setMedical(prev => prev ? { ...prev, tests: [...prev.tests, newItem] } : prev);
+      await medicalRecordService.addTest(patientId, addTestForm);
+      await refreshMedical();
       setAddTestForm({ name: "", date: "", result: "" });
       setAddTestOpen(false);
       setToast("Test added.");
@@ -659,19 +649,8 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
         daysOfWeek: addMedForm.daysOfWeek ? addMedForm.daysOfWeek.split(",").map(s => s.trim()).filter(Boolean) : [],
         notes: addMedForm.notes || null,
       };
-      const result: any = await medicalRecordService.addMedication(patientId, payload);
-      const newItem = {
-        id: result?.id ?? result?.data?.id ?? Date.now(),
-        name: payload.name,
-        dosage: payload.dosage,
-        frequency: payload.frequency,
-        startDate: payload.startDate,
-        endDate: payload.endDate,
-        notes: payload.notes,
-        status: 0,
-        isPending: true,
-      };
-      setMedical(prev => prev ? { ...prev, medications: [...prev.medications, newItem] } : prev);
+      await medicalRecordService.addMedication(patientId, payload);
+      await refreshMedical();
       setAddMedForm({ name: "", dosage: "", frequency: "", startDate: "", endDate: "", reminderTimes: "", daysOfWeek: "", notes: "" });
       setAddMedOpen(false);
       setToast("Medication added.");
@@ -683,16 +662,8 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
     if (!addFamilyForm.name.trim()) { setToast("Name is required."); return; }
     setAddSaving(true);
     try {
-      const result: any = await medicalRecordService.addFamilyCondition(patientId, addFamilyForm);
-      const newItem = {
-        id: result?.id ?? result?.data?.id ?? Date.now(),
-        name: addFamilyForm.name,
-        relative: addFamilyForm.relative,
-        diagnosisDate: addFamilyForm.diagnosisDate,
-        status: 0,
-        isPending: true,
-      };
-      setMedical(prev => prev ? { ...prev, familyConditions: [...prev.familyConditions, newItem] } : prev);
+      await medicalRecordService.addFamilyCondition(patientId, addFamilyForm);
+      await refreshMedical();
       setAddFamilyForm({ name: "", relative: "", diagnosisDate: "" });
       setAddFamilyOpen(false);
       setToast("Family condition added.");
@@ -861,7 +832,8 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
                   ["overview", "Overview"],
                   ["medical", "Medical Record"],
                   ["ai", "AI History"],
-                  ["requests", "Requests"],
+                  ["doctorRequests", "Requests"],
+                  ["patientRequests", "Patient Requests"],
                   ["prescriptions", "Prescriptions"],
                   ["appointments", "Appointments"],
                 ] as const
@@ -1194,7 +1166,7 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
             </div>
           )}
 
-          {tab === "requests" && (
+          {tab === "doctorRequests" && (
             <div className="mt-6 space-y-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <h2 className="text-lg font-bold text-slate-900">Doctor requests</h2>
@@ -1513,6 +1485,36 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
                         <button type="button" onClick={() => setDeleteConfirmId(r.id)} className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100">
                           <Trash2 className="h-3.5 w-3.5" /> Delete
                         </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab === "patientRequests" && (
+            <div className="mt-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-slate-900">Patient Requests</h2>
+              </div>
+              {incomingRequests.length === 0 ? (
+                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white py-10 text-center">
+                  <p className="text-sm font-medium text-slate-500">No requests from this patient</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {incomingRequests.map((req) => (
+                    <div key={req.id} className="rounded-2xl border border-blue-200 bg-blue-50/50 p-5 shadow-sm">
+                      <div className="flex justify-between items-start gap-4">
+                        <div>
+                          <h3 className="font-semibold text-slate-900 m-0">{req.subject}</h3>
+                          <p className="mt-1 text-sm text-slate-700 m-0 whitespace-pre-wrap">{req.message}</p>
+                          <p className="mt-2 text-xs text-slate-500 m-0">{formatDateTime(req.createdAt || "")}</p>
+                        </div>
+                        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold ${req.isCompleted ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+                          {req.isCompleted ? "Completed" : "Pending"}
+                        </span>
                       </div>
                     </div>
                   ))}

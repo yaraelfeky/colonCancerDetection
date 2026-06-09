@@ -306,9 +306,12 @@ const DiagnosisPage: React.FC = () => {
       }
 
       const token = getToken();
+      const patientMatch = doctorPatients.find(p => p.name.toLowerCase() === patientName.trim().toLowerCase());
+      const selectedPatientId = patientMatch ? String(patientMatch.id) : "0";
+
       const fd = new FormData();
       fd.append("Image", imageFile);
-      fd.append("patientId", "0");
+      fd.append("patientId", selectedPatientId);
       const notesParts = [`Patient: ${patientName.trim()}`, doctorNotes.trim()].filter(Boolean);
       if (notesParts.length) {
         fd.append("notes", notesParts.join("\n\n"));
@@ -499,7 +502,7 @@ const DiagnosisPage: React.FC = () => {
           doctorNotes: doctorNotes.trim() || undefined,
           analyzedAt: analysisResult.analyzedAt,
         });
-        showToast("Saved to patient medical record.", "success");
+        showToast("Saved successfully", "success");
         return;
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Backend save failed";
@@ -508,7 +511,7 @@ const DiagnosisPage: React.FC = () => {
       }
     }
 
-    showToast("Saved locally (link a patient ID to sync with the server).", "success");
+    showToast("Saved successfully (local).", "success");
   };
   
 

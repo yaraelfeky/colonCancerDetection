@@ -54,6 +54,25 @@ export const doctorService = {
     return mergeDoctorProfile(null, readLocalProfile());
   },
 
+  async updateDoctorFormData(formData: FormData): Promise<DoctorProfileDto | null> {
+    try {
+      const { data } = await axiosInstance.put<
+        DoctorProfileDto | { data: DoctorProfileDto }
+      >(DOCTOR_PROFILE, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      const server = unwrap<DoctorProfileDto>(data);
+      if (server && typeof server === "object") {
+        writeLocalProfile(server);
+      }
+      return server;
+    } catch (err) {
+      throw err;
+    }
+  },
+
   /** GET /api/Doctor/DoctorSearch */
   async searchDoctors(params?: {
     search?: string;
