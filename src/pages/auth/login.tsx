@@ -1,4 +1,4 @@
-import React, { useEffect , useState, FormEvent } from "react";
+import React, { useEffect, useState, FormEvent } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../Context/AuthContext";
 import { getAxiosErrorMessage } from "../../utils/axiosError";
@@ -51,7 +51,7 @@ const LoginPage: React.FC = () => {
       setErrors(newErrors);
       return;
     }
-    
+
 
     setErrors({});
     setIsSubmitting(true);
@@ -84,170 +84,170 @@ const LoginPage: React.FC = () => {
     } finally {
       setIsSubmitting(false);
     }
-    
+
   };
-  
+
   useEffect(() => {
     if (!successMessage) return;
-  
+
     const timer = setTimeout(() => {
       setShowSuccess(false);
     }, 3000);
-  
+
     return () => clearTimeout(timer);
   }, [successMessage]);
 
   return (
     <div className="auth-page-wrap">
       <ScrollReveal variant="fade-up" delay={50} className="w-full flex justify-center">
-      <div className="auth-card">
-        <div className="auth-card-left">
-          <div className="auth-card-left-bg" />
-          <div className="auth-card-left-overlay" />
-          <div className="auth-card-left-content">
-            <h1 className="auth-card-left-title">Welcome back</h1>
-            <p className="auth-card-left-sub">To a helthier life!</p>
+        <div className="auth-card">
+          <div className="auth-card-left">
+            <div className="auth-card-left-bg" />
+            <div className="auth-card-left-overlay" />
+            <div className="auth-card-left-content">
+              <h1 className="auth-card-left-title">Welcome back</h1>
+              <p className="auth-card-left-sub">To a healthier life!</p>
+            </div>
           </div>
-        </div>
 
-        <div className="auth-card-right">
-          <form className="auth-form" onSubmit={handleSubmit}>
-            <h2 className="auth-form-title">Sign In</h2>
+          <div className="auth-card-right">
+            <form className="auth-form" onSubmit={handleSubmit}>
+              <h2 className="auth-form-title">Sign In</h2>
 
-            {/* {successMessage && (
+              {/* {successMessage && (
               <p className="auth-success-msg">{successMessage}</p>
             )} */}
-            {showSuccess && successMessage && (
-              <div className="mb-4 rounded-xl border border-green-200 bg-green-50 p-3 animate-fade-in">
-                <p className="text-sm font-medium text-green-700">
-                  ✓ {successMessage}
-                </p>
-              </div>
-            )}
-
-            <div className="auth-input-wrap">
-              <label className="auth-label" htmlFor="usernameOrEmail">
-                Username or Email
-              </label>
-              <input
-                id="usernameOrEmail"
-                type="text"
-                className={`auth-input ${errors.usernameOrEmail ? "error" : ""}`}
-                placeholder="Username or email"
-                value={usernameOrEmail}
-                onChange={(e) => {
-                  setUsernameOrEmail(e.target.value);
-                  if (errors.usernameOrEmail) {
-                    setErrors((prev) => ({ ...prev, usernameOrEmail: undefined }));
-                  }
-                }}
-              />
-              {errors.usernameOrEmail && (
-                <p className="auth-error-msg">{errors.usernameOrEmail}</p>
+              {showSuccess && successMessage && (
+                <div className="mb-4 rounded-xl border border-green-200 bg-green-50 p-3 animate-fade-in">
+                  <p className="text-sm font-medium text-green-700">
+                    ✓ {successMessage}
+                  </p>
+                </div>
               )}
-            </div>
 
-            <div className="auth-input-wrap">
-              <label className="auth-label" htmlFor="password">
-                Password
-              </label>
-              <div className="auth-password-wrap">
+              <div className="auth-input-wrap">
+                <label className="auth-label" htmlFor="usernameOrEmail">
+                  Username or Email
+                </label>
                 <input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  className={`auth-input ${errors.password ? "error" : ""}`}
-                  placeholder="••••••••"
-                  value={password}
+                  id="usernameOrEmail"
+                  type="text"
+                  className={`auth-input ${errors.usernameOrEmail ? "error" : ""}`}
+                  placeholder="Username or email"
+                  value={usernameOrEmail}
                   onChange={(e) => {
-                    setPassword(e.target.value);
-                    if (errors.password) {
-                      setErrors((prev) => ({ ...prev, password: undefined }));
+                    setUsernameOrEmail(e.target.value);
+                    if (errors.usernameOrEmail) {
+                      setErrors((prev) => ({ ...prev, usernameOrEmail: undefined }));
                     }
                   }}
                 />
-                <button
-                  type="button"
-                  className="auth-password-toggle"
-                  onClick={() => setShowPassword((p) => !p)}
-                  tabIndex={-1}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? (
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-                      <line x1="1" y1="1" x2="23" y2="23" />
-                    </svg>
-                  ) : (
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
-                  )}
-                </button>
+                {errors.usernameOrEmail && (
+                  <p className="auth-error-msg">{errors.usernameOrEmail}</p>
+                )}
               </div>
-              {errors.password && (
-                <p className="auth-error-msg">{errors.password}</p>
-              )}
-            </div>
 
-            {errors.submit && <p className="auth-error-msg">{errors.submit}</p>}
+              <div className="auth-input-wrap">
+                <label className="auth-label" htmlFor="password">
+                  Password
+                </label>
+                <div className="auth-password-wrap">
+                  <input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    className={`auth-input ${errors.password ? "error" : ""}`}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (errors.password) {
+                        setErrors((prev) => ({ ...prev, password: undefined }));
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="auth-password-toggle"
+                    onClick={() => setShowPassword((p) => !p)}
+                    tabIndex={-1}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                        <line x1="1" y1="1" x2="23" y2="23" />
+                      </svg>
+                    ) : (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+                {errors.password && (
+                  <p className="auth-error-msg">{errors.password}</p>
+                )}
+              </div>
 
-            <button
-              type="submit"
-              className="auth-btn-primary"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Signing in..." : "Login"}
-              <span>→</span>
-            </button>
+              {errors.submit && <p className="auth-error-msg">{errors.submit}</p>}
 
-            <div className="auth-divider-wrap">
-              <span className="auth-divider-line" />
-              <p className="auth-divider-text">or</p>
-              <span className="auth-divider-line" />
-            </div>
-
-            <GoogleCredentialButton
-              label="Sign in with Google"
-              disabled={isSubmitting}
-              onCredential={handleGoogleCredential}
-              onError={(message) => setErrors({ submit: message })}
-            />
-
-            <p className="auth-form-footer">
-              Don&apos;t have an account? <Link to="/register">Register</Link>
-            </p>
-            <p className="auth-form-footer" style={{ marginTop: "8px" }}>
-              <Link
-                to="/forgot-password"
-                style={{ color: "#6b7280", fontSize: "13px" }}
+              <button
+                type="submit"
+                className="auth-btn-primary"
+                disabled={isSubmitting}
               >
-                Forgot password?
-              </Link>
-            </p>
-          </form>
+                {isSubmitting ? "Signing in..." : "Login"}
+                <span>→</span>
+              </button>
+
+              <div className="auth-divider-wrap">
+                <span className="auth-divider-line" />
+                <p className="auth-divider-text">or</p>
+                <span className="auth-divider-line" />
+              </div>
+
+              <GoogleCredentialButton
+                label="Sign in with Google"
+                disabled={isSubmitting}
+                onCredential={handleGoogleCredential}
+                onError={(message) => setErrors({ submit: message })}
+              />
+
+              <p className="auth-form-footer">
+                Don&apos;t have an account? <Link to="/register">Register</Link>
+              </p>
+              <p className="auth-form-footer" style={{ marginTop: "8px" }}>
+                <Link
+                  to="/forgot-password"
+                  style={{ color: "#6b7280", fontSize: "13px" }}
+                >
+                  Forgot password?
+                </Link>
+              </p>
+            </form>
+          </div>
         </div>
-      </div>
       </ScrollReveal>
     </div>
   );
