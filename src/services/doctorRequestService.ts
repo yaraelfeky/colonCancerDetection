@@ -124,10 +124,21 @@ export const doctorRequestService = {
     }
   },
 
-  /** PATCH /api/DoctorRequest/{id}/complete — mark request as completed */
+  /** PATCH /api/DoctorRequest/{id}/complete — mark doctor request as completed */
   async complete(id: number): Promise<{ success: boolean; message: string; data: null }> {
     try {
-      const { data } = await axiosInstance.patch(`${BASE}/${id}/complete`);
+      const { data } = await axiosInstance.patch(`/api/DoctorRequest/${id}/complete`, {});
+      return data;
+    } catch (error) {
+      throw new Error(parseAxiosError(error));
+    }
+  },
+
+  /** PATCH /api/PatientRequest/{id}/complete — mark patient request as completed */
+  async completePatientRequest(id: number): Promise<{ success: boolean; message: string; data: null }> {
+    try {
+      console.log("Completing patient request with ID:", id);
+      const { data } = await axiosInstance.patch(`/api/PatientRequest/${id}/complete`, {});
       return data;
     } catch (error) {
       throw new Error(parseAxiosError(error));

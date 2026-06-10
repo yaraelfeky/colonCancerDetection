@@ -156,7 +156,7 @@ export interface PatientDetailPageProps {
   onBack?: () => void;
 }
 
-type TabId = "overview" | "medical" | "ai" | "doctorRequests" | "patientRequests" | "prescriptions" | "appointments";
+type TabId = "overview" | "medical" | "ai" | "doctorRequests" | "patientRequests" | "prescriptions";
 
 
 
@@ -373,6 +373,16 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
     return () => notificationHub.removeListener(handleNotif);
   }, [fetchIncoming]);
 
+  // Load completed patient requests from localStorage on mount
+  useEffect(() => {
+    const completedIds = JSON.parse(localStorage.getItem(`completed_patient_requests_${patientId}`) || '[]');
+    if (completedIds.length > 0) {
+      setIncomingRequests((prev) =>
+        prev.map((r) => (completedIds.includes(r.id) ? { ...r, isCompleted: true } : r))
+      );
+    }
+  }, [patientId]);
+
   const toggleSection = (s: MedicalSection) => {
     setOpenSections((prev) => ({ ...prev, [s]: !prev[s] }));
   };
@@ -475,6 +485,53 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
     } finally {
       setReqSending(false);
     }
+  };
+
+  const completeDoctorRequest = async (id: number) => {
+    // Optimistic UI update
+    setRequests((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, isCompleted: true } : r))
+    );
+    if (requestDetailData?.request.id === id) {
+      setRequestDetailData({
+        ...requestDetailData,
+        request: { ...requestDetailData.request, isCompleted: true },
+      });
+    }
+
+    try {
+      await doctorRequestService.complete(id);
+      setToast("Request marked as completed.");
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : "Failed to complete request");
+      // Revert if fails
+      setRequests((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, isCompleted: false } : r))
+      );
+      if (requestDetailData?.request.id === id) {
+        setRequestDetailData({
+          ...requestDetailData,
+          request: { ...requestDetailData.request, isCompleted: false },
+        });
+      }
+    }
+  };
+
+  const completePatientRequest = async (id: number) => {
+    console.log("completePatientRequest called with ID:", id);
+    // Static UI update - no API call
+    setIncomingRequests((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, isCompleted: true } : r))
+    );
+
+    // Save to localStorage to persist across page refreshes
+    const completedIds = JSON.parse(localStorage.getItem(`completed_patient_requests_${patientId}`) || '[]');
+    if (!completedIds.includes(id)) {
+      completedIds.push(id);
+      localStorage.setItem(`completed_patient_requests_${patientId}`, JSON.stringify(completedIds));
+    }
+
+    setToast("Patient request marked as completed.");
   };
 
   // ── Detail view ────────────────────────────────────────────────────────
@@ -832,10 +889,9 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
                   ["overview", "Overview"],
                   ["medical", "Medical Record"],
                   ["ai", "AI History"],
-                  ["doctorRequests", "Requests"],
+                  ["doctorRequests", "Doctor Requests"],
                   ["patientRequests", "Patient Requests"],
                   ["prescriptions", "Prescriptions"],
-                  ["appointments", "Appointments"],
                 ] as const
               ).map(([id, label]) => (
                 <button
@@ -1341,13 +1397,14 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
                 <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="text-lg font-bold text-slate-900">Request details</h3>
-                    <button type="button" onClick={closeDetail} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">Close</button>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={closeDetail} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">Close</button>
+                    </div>
                   </div>
                   <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
                     <div><span className="font-semibold text-slate-500">Subject</span><p className="mt-0.5 text-slate-900">{requestDetailData.request.subject}</p></div>
                     <div><span className="font-semibold text-slate-500">Request Type</span><p className="mt-0.5 text-slate-900">{requestTypeDisplay(requestDetailData.request.requestType)}</p></div>
                     <div><span className="font-semibold text-slate-500">Importance</span><p className="mt-0.5"><span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${importanceBadgeClasses(requestDetailData.request.importance)}`}>{importanceDisplay(requestDetailData.request.importance)}</span></p></div>
-                    <div><span className="font-semibold text-slate-500">Status</span><p className="mt-0.5"><span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${requestDetailData.request.isCompleted ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>{requestDetailData.request.isCompleted ? "Completed" : "Pending"}</span></p></div>
                     <div><span className="font-semibold text-slate-500">Patient Id</span><p className="mt-0.5 text-slate-900">{requestDetailData.request.patientId}</p></div>
                     <div><span className="font-semibold text-slate-500">Doctor Id</span><p className="mt-0.5 text-slate-900">{requestDetailData.request.doctorId}</p></div>
                     <div><span className="font-semibold text-slate-500">Created</span><p className="mt-0.5 text-slate-900">{formatDateTime(requestDetailData.request.createdAt)}</p></div>
@@ -1465,9 +1522,6 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
                       </div>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-600">{requestTypeDisplay(r.requestType)}</span>
-                        <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${r.isCompleted ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
-                          {r.isCompleted ? "Completed" : "Pending"}
-                        </span>
                       </div>
                       <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500">
                         <span className="inline-flex items-center gap-1">
@@ -1512,9 +1566,21 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
                           <p className="mt-1 text-sm text-slate-700 m-0 whitespace-pre-wrap">{req.message}</p>
                           <p className="mt-2 text-xs text-slate-500 m-0">{formatDateTime(req.createdAt || "")}</p>
                         </div>
-                        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold ${req.isCompleted ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
-                          {req.isCompleted ? "Completed" : "Pending"}
-                        </span>
+                        <div className="shrink-0 flex flex-col items-end gap-2">
+                          <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${req.isCompleted ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+                            {req.isCompleted ? "Completed" : "Pending"}
+                          </span>
+                          {!req.isCompleted && (
+                            <button type="button" onClick={() => {
+                              const requestId = req.id || (req as any).requestId || (req as any).Id || (req as any).patientRequestId;
+                              if (requestId) {
+                                void completePatientRequest(requestId);
+                              }
+                            }} className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100">
+                              <CheckCircle className="h-3.5 w-3.5" /> Complete
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1551,17 +1617,6 @@ export const PatientDetailPage: React.FC<PatientDetailPageProps> = ({ patientId,
             </div>
           )}
 
-          {tab === "appointments" && (
-            <div className="mt-6 space-y-4">
-              <div className="rounded-2xl border border-slate-100 bg-white p-8 text-center shadow-sm">
-                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-slate-50 text-slate-400">
-                  <Calendar className="h-6 w-6" />
-                </div>
-                <h3 className="text-sm font-semibold text-slate-900">Appointments view is disabled</h3>
-                <p className="mt-1 text-sm text-slate-500">Please use the global Schedule tab to view all your appointments.</p>
-              </div>
-            </div>
-          )}
         </Container>
       </main>
 
